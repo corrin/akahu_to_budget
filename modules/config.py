@@ -13,8 +13,16 @@ required_envs = [
     'AKAHU_USER_TOKEN',
     'AKAHU_APP_TOKEN',
     'AKAHU_PUBLIC_KEY',
-    "YNAB_BEARER_TOKEN",
+    'YNAB_BEARER_TOKEN',
 ]
+
+# Set to false if you don't have a YNAB account, or otherwise want to dsable updating YNAB
+RUN_SYNC_TO_YNAB = os.environ.get('SYNC_TO_YNAB', 'False') == 'True'
+# Set to false if you don't have an Actual Budget account, or otherwise want to dsable updating AB
+RUN_SYNC_TO_AB = os.environ.get('SYNC_TO_AB', 'False') == 'True'
+
+if not RUN_SYNC_TO_YNAB and not RUN_SYNC_TO_AB:
+    raise EnvironmentError("Environment variable SYNC_TO_AB or SYNC_TO_YNAB must be True.")
 
 # Load environment variables into a dictionary for validation
 ENVs = {key: os.getenv(key) for key in required_envs}
@@ -33,9 +41,4 @@ AKAHU_HEADERS = {
     "Authorization": f"Bearer {ENVs['AKAHU_USER_TOKEN']}",
     "X-Akahu-ID": ENVs['AKAHU_APP_TOKEN']
 }
-
-# Set to false if you don't have a YNAB account, or otherwise want to dsable updating YNAB
-RUN_SYNC_TO_YNAB = True 
-# Set to false if you don't have an Actual Budget account, or otherwise want to dsable updating AB
-RUN_SYNC_TO_AB = True
 

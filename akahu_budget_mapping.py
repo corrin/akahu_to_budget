@@ -48,15 +48,20 @@ required_envs = [
     'AKAHU_APP_TOKEN',
     'AKAHU_PUBLIC_KEY',
     'OPENAI_API_KEY',
-    "YNAB_BEARER_TOKEN",
-    "YNAB_BUDGET_ID",
+    'YNAB_BEARER_TOKEN',
+    'YNAB_BUDGET_ID',
 ]
+
+SYNC_TO_YNAB = os.environ.get('SYNC_TO_YNAB', 'False') == 'True'
+SYNC_TO_AB = os.environ.get('SYNC_TO_AB', 'False') == 'True'
+
+if not SYNC_TO_YNAB and not SYNC_TO_AB:
+    logging.error("Environment variable SYNC_TO_AB or SYNC_TO_YNAB must be True.")
+    raise EnvironmentError("Environment variable SYNC_TO_AB or SYNC_TO_YNAB must be True.")
 
 # Load environment variables into a dictionary for validation
 ENVs = {key: os.getenv(key) for key in required_envs}
-SYNC_TO_YNAB = True
-SYNC_TO_AB = True
-DEBUG = False
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 if DEBUG:
     for key, value in ENVs.items():
