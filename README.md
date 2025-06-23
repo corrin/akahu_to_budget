@@ -19,20 +19,8 @@ created for AB (e.g. Payees, failing to trigger rules).  Please raise bugs.
 4. And/OR in YNAB get a bearer token and the budget ID: [https://api.youneedabudget.com/](https://api.youneedabudget.com/)
 5. Check out this repository
 6. Create a virtual environment and run `pip install -r requirements.txt`
-7. Create a `.env` file in the root of the project with the following variables:
-```
-ACTUAL_SERVER_URL="https://<your actual budget host>/"
-ACTUAL_PASSWORD="your actual budget password"
-ACTUAL_ENCRYPTION_KEY="your actual budget encryption key"
-ACTUAL_SYNC_ID="the Sync ID of the budget you want to sync"
-AKAHU_APP_TOKEN="your akahu app token"
-AKAHU_PUBLIC_KEY="Reserved for Future Use"
-AKAHU_USER_TOKEN="your akahu user token"
-FLASK_ENV="development"
-OPENAI_API_KEY="your openai key"
-YNAB_BEARER_TOKEN="your ynab bearer token"
-YNAB_BUDGET_ID="The budget you want to sync"
-```
+7. Create a `.env` file in the root of the project. (see [.env.example](./.env.example))
+
 Note that the OPENAI key is optional.  I included it more for fun.  It makes the matching a bit smarter.  In the future
 I might make it so it tries to guess your category based on the transaction memo.
 

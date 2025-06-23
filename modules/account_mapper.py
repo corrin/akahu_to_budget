@@ -261,9 +261,12 @@ def get_openai_match_suggestion(
     prompt += "\nPlease type the number corresponding to the best match:"
 
     try:
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        client = openai.OpenAI(
+            base_url=os.getenv("OPENAI_BASE_URL", None),
+            api_key=os.getenv("OPENAI_API_KEY"),
+        )
         response = client.chat.completions.create(
-            model="gpt-4",
+            model=os.getenv("OPENAI_MODEL", default="gpt-4"),
             messages=[
                 {
                     "role": "system",
