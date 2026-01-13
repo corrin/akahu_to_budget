@@ -392,7 +392,7 @@ def match_accounts(
         )
 
         print(
-            f"\nAkahu Account: {akahu_name} (Connection: {akahu_account['connection']})"
+            f"\nAkahu Account: {akahu_name} (Connection: {akahu_account['connection']}, account number: {akahu_account['formatted_account']})"
         )
 
         # Show existing mapping from other system
