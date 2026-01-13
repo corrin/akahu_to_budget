@@ -33,7 +33,7 @@ for key, value in ENVs.items():
 YNAB_ENDPOINT = "https://api.ynab.com/v1/"
 YNAB_HEADERS = {"Authorization": f"Bearer {ENVs['YNAB_BEARER_TOKEN']}"}
 
-AKAHU_ENDPOINT = "https://api.akahu.io/v1/"
+AKAHU_ENDPOINT = "https://api.akahu.io/v1"
 AKAHU_HEADERS = {
     "Authorization": f"Bearer {ENVs['AKAHU_USER_TOKEN']}",
     "X-Akahu-ID": ENVs["AKAHU_APP_TOKEN"],
