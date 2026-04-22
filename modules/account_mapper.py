@@ -2,11 +2,8 @@
 import json
 import logging
 from datetime import datetime
-import openai
 import os
 from fuzzywuzzy import process
-
-# OpenAI client will be initialized in functions that need it
 
 
 def is_simple_value(value):
@@ -261,6 +258,8 @@ def get_openai_match_suggestion(
     prompt += "\nPlease type the number corresponding to the best match:"
 
     try:
+        import openai
+
         client = openai.OpenAI(
             base_url=os.getenv("OPENAI_BASE_URL", None),
             api_key=os.getenv("OPENAI_API_KEY"),
