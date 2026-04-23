@@ -11,9 +11,11 @@ from actual.queries import (
     get_ruleset,
     reconcile_transaction,
     get_categories,
+    get_payee,
     get_payees,
     get_account,
     match_transaction,
+    set_transaction_payee,
 )
 from typing import Dict
 
@@ -323,7 +325,27 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
             if ruleset is not None:
                 # Store transaction state before running rules
                 pre_rules_state = vars(reconciled_transaction).copy()
+                pre_rules_payee_id = reconciled_transaction.payee_id
                 ruleset.run(reconciled_transaction)
+
+                # ruleset.run assigns payee_id directly, which bypasses
+                # set_transaction_payee's side effect of materialising the
+                # mirror transaction when the new payee points at another
+                # account. Re-apply via set_transaction_payee so transfers
+                # are created at import time rather than only after the
+                # user edits the transaction in the Actual UI.
+                new_payee_id = reconciled_transaction.payee_id
+                if new_payee_id and new_payee_id != pre_rules_payee_id:
+                    new_payee = get_payee(actual.session, new_payee_id)
+                    if new_payee is not None and new_payee.transfer_acct:
+                        # Ensure .account is materialised; set_transaction_payee
+                        # dereferences transaction.account.payee.id internally
+                        # and that relationship is lazy-loaded.
+                        actual.session.flush()
+                        reconciled_transaction.payee_id = pre_rules_payee_id
+                        set_transaction_payee(
+                            actual.session, reconciled_transaction, new_payee
+                        )
 
                 # Compare states to see if rules modified the transaction
                 post_rules_state = vars(reconciled_transaction)
