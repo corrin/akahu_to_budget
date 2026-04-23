@@ -102,7 +102,7 @@ def test_force_refresh_parses_true(full_env, reload_config):
 
 
 def test_akahu_endpoint_has_no_trailing_slash(full_env, reload_config):
-    """Regression guard for commit 8126129 - trailing slash produced `//`
-    in composed URLs and Akahu 404'd."""
+    """Call sites compose as `f'{AKAHU_ENDPOINT}/accounts'` - a trailing
+    slash here produces `//` and Akahu returns 404."""
     cfg = reload_config()
     assert not cfg.AKAHU_ENDPOINT.endswith("/")
