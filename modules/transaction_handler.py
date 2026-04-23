@@ -214,9 +214,15 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
         transaction_date = txn.get("date")
         payee_name = txn.get("description")
         notes = txn.get("description")
-        amount = decimal.Decimal(txn.get("amount"))
-        amount = amount.quantize(decimal.Decimal("0.0001"))
         imported_id = txn.get("_id")
+        raw_amount = txn.get("amount")
+        try:
+            amount = decimal.Decimal(raw_amount).quantize(decimal.Decimal("0.0001"))
+        except (decimal.InvalidOperation, TypeError, ValueError) as e:
+            raise RuntimeError(
+                f"Could not parse amount={raw_amount!r} for Akahu transaction "
+                f"{imported_id} (date={transaction_date}, payee={payee_name!r})"
+            ) from e
         cleared = True
 
         try:
