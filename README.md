@@ -122,6 +122,39 @@ There is minimal security, mostly because the webhooks don't take parameters so 
 
 NOTE TO EXISTING USERS: If you're been using akahu_to_budget.py, we have finished the migration to flask_app.py.  You will need to update your scripts.
 
+# Running in a container
+
+The repository ships a `Containerfile` (works with both `docker` and `podman`)
+and publishes an image to GitHub Container Registry on every push to `main`
+and on tagged releases:
+
+- `ghcr.io/corrin/akahu_to_budget:latest` — latest `main`
+- `ghcr.io/corrin/akahu_to_budget:v1.2.3` — specific tag
+
+You still need to provide your `.env` file and the `akahu_budget_mapping.json`
+you generated during setup. Mount them both into the container:
+
+```bash
+# One-off sync (the default)
+podman run --rm \
+  --env-file ./.env \
+  -v ./akahu_budget_mapping.json:/app/akahu_budget_mapping.json \
+  ghcr.io/corrin/akahu_to_budget:latest
+
+# Webhook server (overrides the default CMD and exposes port 5000)
+podman run --rm -p 5000:5000 \
+  --env-file ./.env \
+  -v ./akahu_budget_mapping.json:/app/akahu_budget_mapping.json \
+  ghcr.io/corrin/akahu_to_budget:latest ''
+```
+
+Substitute `docker` for `podman` if you prefer. To build locally instead of
+pulling:
+
+```bash
+podman build -t akahu_to_budget:local -f Containerfile .
+```
+
 # Running Tests
 
 There are some tests to validate the API is still working.  You can probably ignore them.
