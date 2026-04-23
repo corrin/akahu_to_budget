@@ -287,7 +287,9 @@ def get_openai_match_suggestion(
         if chosen_index is not None:
             return chosen_index
     except Exception as e:
-        logging.error(f"OpenAI API call failed or gave an invalid response: {str(e)}")
+        logging.warning(
+            f"OpenAI match suggestion unavailable ({e}); falling back to fuzzy match."
+        )
 
     return get_fuzzy_match_suggestion(
         akahu_account, target_accounts, akahu_to_account_mapping, target_account_key

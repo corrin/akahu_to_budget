@@ -50,8 +50,6 @@ logging.info(f"Sync targets - YNAB: {RUN_SYNC_TO_YNAB}, AB: {RUN_SYNC_TO_AB}")
 required_envs = [
     'AKAHU_USER_TOKEN',
     'AKAHU_APP_TOKEN',
-    'AKAHU_PUBLIC_KEY',
-    'OPENAI_API_KEY',
 ]
 
 if RUN_SYNC_TO_AB:
@@ -158,13 +156,19 @@ def main():
     if akahu_accounts_match and actual_accounts_match and ynab_accounts_match:
         logging.info("No changes detected in Akahu, Actual, or YNAB accounts. Skipping match")
     else:
+        use_openai = bool(os.getenv("OPENAI_API_KEY"))
+        logging.info(
+            f"Match suggestions: {'OpenAI' if use_openai else 'fuzzy match'} "
+            f"(set OPENAI_API_KEY to enable OpenAI)"
+        )
+
         # Step 6: Match Akahu accounts to YNAB accounts interactively
         if RUN_SYNC_TO_YNAB:
-            new_mapping = match_accounts(new_mapping, akahu_accounts, ynab_accounts, "ynab", use_openai=True)
+            new_mapping = match_accounts(new_mapping, akahu_accounts, ynab_accounts, "ynab", use_openai=use_openai)
 
         # Step 5: Match Akahu accounts to Actual accounts interactively
         if RUN_SYNC_TO_AB:
-            new_mapping = match_accounts(new_mapping, akahu_accounts, actual_accounts, "actual", use_openai=True)
+            new_mapping = match_accounts(new_mapping, akahu_accounts, actual_accounts, "actual", use_openai=use_openai)
 
     # Step 7: Save the final mapping
     data_to_save = {
