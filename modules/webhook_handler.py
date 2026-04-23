@@ -87,12 +87,14 @@ def create_flask_app(actual_client, mapping_list, env_vars):
             return generate_sync_report(mapping_list, actual_count, ynab_count)
 
         except Exception as e:
-            logging.error(f"Sync failed: {str(e)}")
+            logging.exception("Sync failed")
             return (
                 jsonify(
                     {
                         "status": "error",
-                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "error": str(e) or repr(e),
+                        "hint": "Full traceback in app.log",
                     }
                 ),
                 500,
