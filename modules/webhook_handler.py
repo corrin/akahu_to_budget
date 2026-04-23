@@ -17,7 +17,11 @@ from modules.transaction_handler import (
     load_transactions_into_ynab,
     create_adjustment_txn_ynab,
 )
-from modules.account_fetcher import get_akahu_balance, get_ynab_balance
+from modules.account_fetcher import (
+    get_akahu_balance,
+    get_ynab_balance,
+    trigger_akahu_refresh,
+)
 from modules.transaction_tester import run_transaction_tests
 
 
@@ -69,6 +73,8 @@ def create_flask_app(actual_client, mapping_list, env_vars):
         ynab_count = 0
 
         try:
+            trigger_akahu_refresh()
+
             _, _, _, mapping_list = load_existing_mapping()
 
             if RUN_SYNC_TO_AB:

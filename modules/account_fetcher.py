@@ -103,6 +103,30 @@ def fetch_ynab_accounts():
         raise
 
 
+def trigger_akahu_refresh():
+    """Ask Akahu to refresh all connected accounts from the banks.
+
+    Akahu refreshes from banks on its own schedule (roughly daily). Without
+    this nudge a manual sync just replays whatever Akahu already has, which
+    in practice is usually several hours stale — and the symptom reported in
+    issue #21 was exactly that.
+
+    Best-effort: on failure we warn and continue, so a flaky /refresh
+    endpoint never blocks the sync itself. Any real auth/connectivity
+    problem will surface loudly on the very next Akahu API call anyway.
+    """
+    try:
+        response = requests.post(
+            f"{AKAHU_ENDPOINT}/refresh", headers=AKAHU_HEADERS, timeout=30
+        )
+        response.raise_for_status()
+        logging.info("Triggered Akahu refresh of all connected accounts.")
+    except requests.RequestException as e:
+        logging.warning(
+            f"Akahu refresh request failed (continuing with sync): {e}"
+        )
+
+
 def get_akahu_balance(akahu_account_id, akahu_endpoint, akahu_headers):
     """Fetch the balance for an Akahu account."""
     try:

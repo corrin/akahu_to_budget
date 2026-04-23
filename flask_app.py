@@ -14,6 +14,7 @@ from actual import Actual
 
 # Import from our modules package
 from modules.sync_handler import sync_to_ab, sync_to_ynab
+from modules.account_fetcher import trigger_akahu_refresh
 from modules.account_mapper import load_existing_mapping
 from modules.config import AKAHU_ENDPOINT, AKAHU_HEADERS
 from modules.config import RUN_SYNC_TO_AB, RUN_SYNC_TO_YNAB
@@ -90,6 +91,8 @@ def run_sync(account_ids=None, debug_mode=None):
     """
     logging.info("Starting direct sync...")
     actual_count = ynab_count = 0
+
+    trigger_akahu_refresh()
 
     _, _, _, mapping_list = load_existing_mapping()
     
