@@ -1,0 +1,44 @@
+# Development environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Version control / CI
+.git/
+.github/
+.gitignore
+
+# Editor and tool configs
+.claude/
+.vscode/
+.idea/
+.flake8
+CLAUDE.md
+
+# Local state and logs
+app.log
+*.log
+actual-budget-data/
+
+# Secrets and per-user config (must be provided at runtime)
+.env
+.env.*
+!.env.example
+akahu_budget_mapping.json
+
+# Container-build artefacts (not needed inside the image)
+Containerfile
+.dockerignore
+
+# Dev-only dependencies
+requirements_dev.txt
+
+# Repo assets not used at runtime
+documentation/
+
+# Per-user analysis artefacts
+openai_response.txt
+payee_analysis_for_openai.txt
+proposed_consolidation_rules.json
+proposed_consolidation_rules.txt
