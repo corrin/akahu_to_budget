@@ -3,6 +3,13 @@ Script for syncing transactions from Akahu to YNAB, Actual Budget, and Sure Fina
 Also provides webhook endpoints for real-time transaction syncing.
 """
 
+from dotenv import load_dotenv
+
+# Populate os.environ from a .env in CWD before any module that reads env at
+# import time (notably modules.config). dotenv handles quoted values, comments,
+# and blank lines — which docker's --env-file does not.
+load_dotenv()
+
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import os
