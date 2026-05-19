@@ -68,7 +68,7 @@ curl -H "Authorization: Bearer <ACCESS_TOKEN>" https://api.ynab.com/v1/budgets
 
 ## OpenAI
 
-I haven't bothered to document this because it's optional.  The setup is similar to YNAB.
+I haven't bothered to document this because it's optional.  Add the API key.  Have fun.  Currently OpenAI is only used to help mapping accounts. It would make sense to use it mapping transactions too but... that hasn't been done.
 
 ## Python
 
