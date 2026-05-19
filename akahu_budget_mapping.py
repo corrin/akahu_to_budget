@@ -4,21 +4,26 @@
 # It's also handy because it acts as a sanity test of the APIs
 # If this works then you know that connecting to all three is working, and there's no risk of breaking your budgets.
 
-import os
-import pathlib
 import logging
-from datetime import datetime
-from dotenv import load_dotenv
 from actual import Actual
+from modules.config import (
+    ENVs,
+    LOG_FILE,
+    MAPPING_FILE,
+    RUN_SYNC_TO_AB,
+    RUN_SYNC_TO_YNAB,
+)
 
 # Configure logging
+if LOG_FILE is None:
+    handlers = [logging.StreamHandler()]
+else:
+    handlers = [logging.FileHandler(LOG_FILE), logging.StreamHandler()]
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ]
+    handlers=handlers,
 )
 
 # Import from our modules package
@@ -33,12 +38,6 @@ from modules.account_mapper import (
     check_for_changes,
 )
 from modules.mapping_store import load_existing_mapping, save_mapping, remove_seq
-from modules.config import RUN_SYNC_TO_YNAB, RUN_SYNC_TO_AB
-
-
-
-# Load environment variables from the parent directory's .env file
-load_dotenv(dotenv_path=pathlib.Path(__file__).parent / '.env')
 
 DEBUG = False
 
@@ -64,15 +63,13 @@ if RUN_SYNC_TO_YNAB:
         'YNAB_BUDGET_ID',
     ])
 
-# Load environment variables into a dictionary for validation
-ENVs = {key: os.getenv(key) for key in required_envs}
-
 if DEBUG:
     for key, value in ENVs.items():
         logging.info("Environment variable {key}: {value}".format(key=key, value=value))
 
 # Validate that all required environment variables are loaded
-for key, value in ENVs.items():
+for key in required_envs:
+    value = ENVs.get(key)
     if value is None:
         logging.error(f"Environment variable {key} is missing.")
         raise EnvironmentError(f"Missing required environment variable: {key}")
@@ -109,15 +106,17 @@ def main():
         logging.info("Not syncing to YNAB - skipping YNAB account fetch")
 
     # Step 0: Load existing mapping and validate
-    existing_akahu_accounts, existing_actual_accounts, existing_ynab_accounts, existing_mapping = load_existing_mapping(generate_stub=True)
+    existing_akahu_accounts, existing_actual_accounts, existing_ynab_accounts, existing_mapping = load_existing_mapping(
+        MAPPING_FILE, generate_stub=True
+    )
 
     # Retrofit budget IDs to existing mappings to avoid having to manually remap accounts
     # This is a one-time update for existing mappings that don't have these fields
     for mapping in existing_mapping.values():
         if 'ynab_account_id' in mapping and 'ynab_budget_id' not in mapping:
-            mapping['ynab_budget_id'] = os.getenv('YNAB_BUDGET_ID')
+            mapping['ynab_budget_id'] = ENVs.get('YNAB_BUDGET_ID')
         if 'actual_account_id' in mapping and 'actual_budget_id' not in mapping:
-            mapping['actual_budget_id'] = os.getenv('ACTUAL_SYNC_ID')
+            mapping['actual_budget_id'] = ENVs.get('ACTUAL_SYNC_ID')
 
     # Step 1: Fetch Akahu accounts
     latest_akahu_accounts = fetch_akahu_accounts()
@@ -154,7 +153,7 @@ def main():
     if akahu_accounts_match and actual_accounts_match and ynab_accounts_match:
         logging.info("No changes detected in Akahu, Actual, or YNAB accounts. Skipping match")
     else:
-        use_openai = bool(os.getenv("OPENAI_API_KEY"))
+        use_openai = bool(ENVs.get("OPENAI_API_KEY"))
         logging.info(
             f"Match suggestions: {'OpenAI' if use_openai else 'fuzzy match'} "
             f"(set OPENAI_API_KEY to enable OpenAI)"
@@ -177,7 +176,7 @@ def main():
     }
 
     data_without_seq = remove_seq(data_to_save)
-    save_mapping(data_without_seq)
+    save_mapping(data_without_seq, MAPPING_FILE)
 
 if __name__ == "__main__":
     main()

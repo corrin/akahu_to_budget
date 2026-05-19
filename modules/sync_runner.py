@@ -13,20 +13,22 @@ load_dotenv()
 
 from modules.account_fetcher import trigger_akahu_refresh
 from modules.mapping_store import load_existing_mapping
-from modules.config import RUN_SYNC_TO_AB, RUN_SYNC_TO_YNAB
+from modules.config import LOG_FILE, MAPPING_FILE, RUN_SYNC_TO_AB, RUN_SYNC_TO_YNAB
 from modules.config import ENVs
 from modules.sync_handler import sync_to_ab, sync_to_ynab
 
 
 def configure_logging():
     """Configure logging once for command-line and Flask entrypoints."""
+    if LOG_FILE is None:
+        handlers = [logging.StreamHandler()]
+    else:
+        handlers = [logging.FileHandler(LOG_FILE), logging.StreamHandler()]
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler("app.log"),
-            logging.StreamHandler(),
-        ],
+        handlers=handlers,
     )
 
 
@@ -67,7 +69,7 @@ def run_sync(account_ids=None, debug_mode=None):
 
     trigger_akahu_refresh()
 
-    _, _, _, mapping_list = load_existing_mapping()
+    _, _, _, mapping_list = load_existing_mapping(MAPPING_FILE)
 
     if account_ids:
         filtered_mapping = {k: v for k, v in mapping_list.items() if k in account_ids}

@@ -1,5 +1,7 @@
 """Env-var validation in modules.config."""
 
+import json
+
 import pytest
 
 
@@ -106,3 +108,77 @@ def test_akahu_endpoint_has_no_trailing_slash(full_env, reload_config):
     slash here produces `//` and Akahu returns 404."""
     cfg = reload_config()
     assert not cfg.AKAHU_ENDPOINT.endswith("/")
+
+
+def test_mapping_log_paths_and_daily_sync_default_for_existing_deployments(
+    full_env, reload_config
+):
+    cfg = reload_config()
+
+    assert cfg.MAPPING_FILE == "akahu_budget_mapping.json"
+    assert cfg.LOG_FILE == "app.log"
+    assert cfg.SYNC_INTERVAL == 86400
+
+
+def test_env_can_override_mapping_log_and_interval(full_env, reload_config):
+    full_env.setenv("MAPPING_FILE", "/tmp/custom-mapping.json")
+    full_env.setenv("LOG_FILE", "")
+    full_env.setenv("SYNC_INTERVAL", "300")
+
+    cfg = reload_config()
+
+    assert cfg.MAPPING_FILE == "/tmp/custom-mapping.json"
+    assert cfg.LOG_FILE is None
+    assert cfg.SYNC_INTERVAL == 300
+
+
+def test_home_assistant_options_override_env(clean_env, reload_config, tmp_path):
+    options_file = tmp_path / "options.json"
+    options_file.write_text(
+        json.dumps(
+            {
+                "RUN_SYNC_TO_YNAB": False,
+                "RUN_SYNC_TO_AB": True,
+                "AKAHU_USER_TOKEN": "ha-akahu-user",
+                "AKAHU_APP_TOKEN": "ha-akahu-app",
+                "ACTUAL_SERVER_URL": "https://actual.ha.test",
+                "ACTUAL_PASSWORD": "ha-pw",
+                "ACTUAL_ENCRYPTION_KEY": "ha-key",
+                "ACTUAL_SYNC_ID": "ha-sync",
+                "mapping_file": "/data/akahu_budget_mapping.json",
+                "log_file": "",
+                "sync_interval": 600,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    clean_env.setenv("RUN_SYNC_TO_YNAB", "true")
+    clean_env.setenv("RUN_SYNC_TO_AB", "false")
+    clean_env.setenv("AKAHU_TO_BUDGET_OPTIONS_FILE", str(options_file))
+    cfg = reload_config()
+
+    assert cfg.RUN_SYNC_TO_YNAB is False
+    assert cfg.RUN_SYNC_TO_AB is True
+    assert cfg.ENVs["AKAHU_USER_TOKEN"] == "ha-akahu-user"
+    assert cfg.MAPPING_FILE == "/data/akahu_budget_mapping.json"
+    assert cfg.LOG_FILE is None
+    assert cfg.SYNC_INTERVAL == 600
+
+
+def test_invalid_home_assistant_options_json_fails_loud(clean_env, reload_config, tmp_path):
+    options_file = tmp_path / "options.json"
+    options_file.write_text("{not-json", encoding="utf-8")
+    clean_env.setenv("AKAHU_TO_BUDGET_OPTIONS_FILE", str(options_file))
+
+    with pytest.raises(EnvironmentError, match="Invalid JSON"):
+        reload_config()
+
+
+def test_explicit_missing_home_assistant_options_file_fails_loud(
+    clean_env, reload_config, tmp_path
+):
+    clean_env.setenv("AKAHU_TO_BUDGET_OPTIONS_FILE", str(tmp_path / "missing.json"))
+
+    with pytest.raises(EnvironmentError, match="Options file not found"):
+        reload_config()

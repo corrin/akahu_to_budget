@@ -28,6 +28,14 @@ def clean_env(monkeypatch):
         "ACTUAL_PASSWORD",
         "ACTUAL_ENCRYPTION_KEY",
         "ACTUAL_SYNC_ID",
+        "YNAB_BUDGET_ID",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_MODEL",
+        "MAPPING_FILE",
+        "LOG_FILE",
+        "SYNC_INTERVAL",
+        "AKAHU_TO_BUDGET_OPTIONS_FILE",
     ]
     for k in keys:
         monkeypatch.delenv(k, raising=False)
