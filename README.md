@@ -68,7 +68,7 @@ curl -H "Authorization: Bearer <ACCESS_TOKEN>" https://api.ynab.com/v1/budgets
 
 ## OpenAI
 
-I haven't bothered to document this because it's optional.  The setup is similar to YNAB.
+I haven't bothered to document this because it's optional.  Add the API key.  Have fun.  Currently OpenAI is only used to help mapping accounts. It would make sense to use it mapping transactions too but... that hasn't been done.
 
 ## Python
 
@@ -162,6 +162,82 @@ pulling:
 ```bash
 podman build -t akahu_to_budget:local -f Containerfile .
 ```
+
+# Running on Home Assistant OS
+
+This repo also includes a Home Assistant OS add-on wrapper in
+`akahu_to_budget_addon/`. It is intended for my personal HAOS setup: the add-on
+stays running and performs a scheduled daily sync by default because Akahu is
+synced daily. That automatic recurring sync is not necessarily the
+right behavior for everyone; the normal Python, Docker/Podman, cron, systemd,
+and Flask deployment paths remain supported.
+
+The add-on uses the `ghcr.io/corrin/akahu_to_budget-haos` image, built from the
+repo root so it shares the same sync code as the other deployment methods.
+
+## HAOS setup
+
+1. Generate `akahu_budget_mapping.json` before installing the add-on:
+
+   ```bash
+   python akahu_budget_mapping.py
+   ```
+
+   This is still an interactive setup step and is easier to run on your normal
+   computer than inside Home Assistant.
+
+2. In Home Assistant, go to **Settings → Apps**.
+3. Select **Install app** to open the App Store.
+4. Open the top-right store menu, choose **Repositories**, and add this repository:
+
+   ```text
+   https://github.com/corrin/akahu_to_budget
+   ```
+
+5. Install the **Akahu to Budget** app.
+6. Copy `akahu_budget_mapping.json` into the app config directory and leave
+   the default add-on option as:
+
+   ```text
+   /config/akahu_budget_mapping.json
+   ```
+
+   If you place the file somewhere else, update the `mapping_file` option to
+   match that path.
+
+7. Fill in the app options for the services you use:
+
+   - `RUN_SYNC_TO_AB`
+   - `RUN_SYNC_TO_YNAB`
+   - Akahu tokens
+   - Actual Budget settings, if enabled
+   - YNAB settings, if enabled
+
+8. Start the app and check the app log. It should print the options file,
+   mapping file, and sync interval before the first sync starts.
+
+## HAOS options
+
+The add-on reads settings from the Supervisor options UI. By default it expects
+the mapping file at:
+
+```text
+/config/akahu_budget_mapping.json
+```
+
+The default `sync_interval` is `86400`, which means one sync per day. Set
+`log_file` to an empty string to use Supervisor logs only; that is the default
+for the add-on.
+
+The add-on fails loudly if the mapping file is missing or if required options
+for the enabled sync target are blank.
+
+## Updating on HAOS
+
+Pushes to `main` publish a fresh `ghcr.io/corrin/akahu_to_budget-haos:latest`
+image. Tagged releases also publish versioned images. After pulling repo
+updates in the Add-on Store, update/restart the add-on so HAOS pulls the new
+image.
 
 # Running Tests
 
