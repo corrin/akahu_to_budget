@@ -21,6 +21,11 @@ from modules.config import (
     DEBUG_SYNC,
 )
 
+try:
+    from actual.protobuf_models import SyncRequest
+except ImportError:
+    SyncRequest = None
+
 
 def get_account_priority(account_entry):
     """

@@ -1,4 +1,3 @@
-actualpy
 python-dotenv
 requests
 openai

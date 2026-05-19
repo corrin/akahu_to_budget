@@ -1,14 +1,12 @@
-# THis script is responsible for reading from Akahu, Actual Budget and YNAB
-# ANd creating a mapping JSON
-#
-# It's also handy because it acts as a sanity test of the APIs
-# If this works then you know that connecting to all three is working, and there's no risk of breaking your budgets.
+# This script is responsible for reading from Akahu, Actual Budget and YNAB
+# And creating a mapping JSON
 
 import os
 import pathlib
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
+
 from actual import Actual
 
 # Configure logging
@@ -35,7 +33,7 @@ from modules.account_mapper import (
     check_for_changes,
     remove_seq
 )
-from modules.config import RUN_SYNC_TO_YNAB, RUN_SYNC_TO_AB
+from modules.config import RUN_SYNC_TO_YNAB, RUN_SYNC_TO_AB, RUN_SYNC_TO_SURE
 
 
 
@@ -45,7 +43,7 @@ load_dotenv(dotenv_path=pathlib.Path(__file__).parent / '.env')
 DEBUG = False
 
 # Define required environment variables based on sync settings
-logging.info(f"Sync targets - YNAB: {RUN_SYNC_TO_YNAB}, AB: {RUN_SYNC_TO_AB}")
+logging.info(f"Sync targets - YNAB: {RUN_SYNC_TO_YNAB}, AB: {RUN_SYNC_TO_AB}, SURE: {RUN_SYNC_TO_SURE}")
 
 required_envs = [
     'AKAHU_USER_TOKEN',
@@ -64,6 +62,11 @@ if RUN_SYNC_TO_YNAB:
     required_envs.extend([
         'YNAB_BEARER_TOKEN',
         'YNAB_BUDGET_ID',
+    ])
+
+if RUN_SYNC_TO_SURE:
+    required_envs.extend([
+        'SURE_API_TOKEN',
     ])
 
 # Load environment variables into a dictionary for validation
@@ -169,6 +172,34 @@ def main():
         # Step 5: Match Akahu accounts to Actual accounts interactively
         if RUN_SYNC_TO_AB:
             new_mapping = match_accounts(new_mapping, akahu_accounts, actual_accounts, "actual", use_openai=use_openai)
+            
+    # Interactive Mapping Loop for Sure Finance
+    if RUN_SYNC_TO_SURE:
+        print("\n" + "="*50)
+        print("Sure Finance Interactive Mapping")
+        print("="*50)
+        print("Please provide the Sure Finance Account ID for your Akahu accounts.")
+        print("You can find this ID in the URL when viewing an account in the Sure UI.")
+        print("(Press Enter to skip an account if you don't want to map it to Sure)")
+        
+        for akahu_id, akahu_acc in akahu_accounts.items():
+            current_sure_id = new_mapping.get(akahu_id, {}).get("sure_id")
+            
+            # Skip if already mapped
+            if current_sure_id:
+                logging.info(f"[{akahu_acc['name']}] is already mapped to Sure ID: {current_sure_id}")
+                continue
+            
+            print(f"\nBank Account: {akahu_acc['name']}")
+            user_input = input("Enter Sure Account ID: ").strip()
+            
+            if user_input:
+                if akahu_id not in new_mapping:
+                    new_mapping[akahu_id] = {}
+                new_mapping[akahu_id]["sure_id"] = user_input
+                print(f"Mapped '{akahu_acc['name']}' to Sure ID '{user_input}'.")
+            else:
+                print("Skipped Akahu mapping to Sure ID.")
 
     # Step 7: Save the final mapping
     data_to_save = {
@@ -180,6 +211,7 @@ def main():
 
     data_without_seq = remove_seq(data_to_save)
     save_mapping(data_without_seq)
+    logging.info("Mapping saved successfully.")
 
 if __name__ == "__main__":
     main()

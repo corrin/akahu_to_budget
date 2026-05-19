@@ -2,13 +2,14 @@
 
 import base64
 import logging
+import sys
 from flask import Flask, request, jsonify, redirect, url_for
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 import pandas as pd
 
 from modules.account_mapper import load_existing_mapping
-from modules.config import RUN_SYNC_TO_AB, RUN_SYNC_TO_YNAB, YNAB_ENDPOINT, YNAB_HEADERS
+from modules.config import RUN_SYNC_TO_AB, RUN_SYNC_TO_YNAB, RUN_SYNC_TO_SURE, YNAB_ENDPOINT, YNAB_HEADERS
 from modules.sync_handler import sync_to_ab, sync_to_ynab
 from modules.sync_status import generate_sync_report
 from modules.transaction_handler import (
@@ -23,6 +24,9 @@ from modules.account_fetcher import (
     trigger_akahu_refresh,
 )
 from modules.transaction_tester import run_transaction_tests
+
+# Import our custom Sure client
+import sure_client
 
 
 def verify_signature(public_key: str, signature: str, request_body: bytes) -> None:
@@ -83,6 +87,9 @@ def create_flask_app(actual_client, mapping_list, env_vars):
 
             if RUN_SYNC_TO_YNAB:
                 ynab_count = sync_to_ynab(mapping_list)
+                
+            # Note: A full GET /sync pull for Sure isn't implemented yet, 
+            # as Sure relies on real-time webhooks below.
 
             return generate_sync_report(mapping_list, actual_count, ynab_count)
 
@@ -163,6 +170,15 @@ def create_flask_app(actual_client, mapping_list, env_vars):
                     YNAB_ENDPOINT,
                     YNAB_HEADERS,
                 )
+                
+        # Process for Sure Finance if enabled
+        if RUN_SYNC_TO_SURE and not mapping_entry.get("sure_do_not_map"):
+            sure_account_id = mapping_entry.get("sure_id")
+            if sure_account_id:
+                try:
+                    sure_client.push_to_sure(transactions, sure_account_id)
+                except Exception as e:
+                    logging.error(f"Failed to push transaction to Sure: {str(e)}")
 
         return jsonify({"status": "success"}), 200
 
