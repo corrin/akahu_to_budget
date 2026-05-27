@@ -7,7 +7,12 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import httpx
 import requests
-from actual import Actual
+
+# Gracefully handle the Actual Budget dependency for users who don't sync to it
+try:
+    from actual import Actual
+except ImportError:
+    Actual = None
 
 # Populate os.environ before modules.config reads environment variables.
 load_dotenv()
@@ -37,6 +42,8 @@ def configure_logging():
 def get_actual_client():
     """Yield an Actual client if Actual sync is enabled; otherwise yield None."""
     if RUN_SYNC_TO_AB:
+        if not Actual:
+            raise ImportError("The 'actualpy' module is required to sync to Actual Budget. Please install it.")
         try:
             logging.info(
                 f"Attempting to connect to Actual server at {ENVs['ACTUAL_SERVER_URL']}"
