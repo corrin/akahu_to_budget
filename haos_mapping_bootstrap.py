@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import binascii
-import gzip
 import json
 import os
 from pathlib import Path
@@ -12,7 +9,7 @@ from pathlib import Path
 
 DEFAULT_MAPPING_FILE = "/config/akahu_budget_mapping.json"
 DEFAULT_OPTIONS_FILE = "/data/options.json"
-MAPPING_UPLOAD_OPTION = "mapping_json_gzip_base64"
+MAPPING_UPLOAD_OPTION = "mapping_json"
 REQUIRED_MAPPING_KEYS = {
     "akahu_accounts",
     "actual_accounts",
@@ -32,19 +29,7 @@ def _load_options(options_file: str | os.PathLike[str]) -> dict:
 
 def _decode_mapping(upload_value: str) -> dict:
     try:
-        compressed = base64.b64decode(upload_value, validate=True)
-    except binascii.Error as e:
-        raise ValueError(f"{MAPPING_UPLOAD_OPTION} is not valid base64") from e
-
-    try:
-        raw = gzip.decompress(compressed)
-    except OSError as e:
-        raise ValueError(f"{MAPPING_UPLOAD_OPTION} is not valid gzip data") from e
-
-    try:
-        data = json.loads(raw.decode("utf-8"))
-    except UnicodeDecodeError as e:
-        raise ValueError(f"{MAPPING_UPLOAD_OPTION} is not UTF-8 encoded JSON") from e
+        data = json.loads(upload_value)
     except json.JSONDecodeError as e:
         raise ValueError(f"{MAPPING_UPLOAD_OPTION} does not contain valid JSON: {e}") from e
 

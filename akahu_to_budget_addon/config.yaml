@@ -33,7 +33,7 @@ options:
   FORCE_REFRESH: false
   DEBUG_SYNC: false
   mapping_file: /config/akahu_budget_mapping.json
-  mapping_json_gzip_base64: ""
+  mapping_json: ""
   log_file: ""
   # Akahu is synced daily in this personal HAOS deployment.
   sync_interval: 86400
@@ -57,6 +57,6 @@ schema:
   FORCE_REFRESH: bool
   DEBUG_SYNC: bool
   mapping_file: str
-  mapping_json_gzip_base64: password?
+  mapping_json: password?
   log_file: str
   sync_interval: int(1,)
