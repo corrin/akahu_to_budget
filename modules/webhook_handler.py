@@ -177,7 +177,7 @@ def create_flask_app(actual_client, mapping_list, env_vars):
             sure_account_id = mapping_entry.get("sure_id")
             if sure_account_id:
                 try:
-                    sure_client.push_to_sure(transactions, sure_account_id)
+                    sure_client.push_transactions([transactions], sure_account_id)
                 except Exception as e:
                     logging.error(f"Failed to push transaction to Sure: {str(e)}")
 
