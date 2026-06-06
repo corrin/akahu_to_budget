@@ -19,6 +19,7 @@ from modules.config import (
     AKAHU_HEADERS,
     FORCE_REFRESH,
     DEBUG_SYNC,
+    MAPPING_FILE,
 )
 
 def get_account_priority(account_entry):
@@ -39,9 +40,10 @@ def get_account_priority(account_entry):
 def update_mapping_timestamps(
     successful_ab_syncs=None,
     successful_ynab_syncs=None,
-    mapping_file="akahu_budget_mapping.json",
+    mapping_file=None,
 ):
     """Update sync timestamps for multiple accounts in a single operation."""
+    mapping_file = mapping_file or MAPPING_FILE
     akahu_accounts, actual_accounts, ynab_accounts, mappings = load_existing_mapping(
         mapping_file
     )

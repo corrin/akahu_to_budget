@@ -17,9 +17,20 @@ SURE_DEFAULT_URL = "http://127.0.0.1:8084/api/v1/transactions"
 SURE_REQUEST_TIMEOUT_SECONDS = 15
 NZ_TIMEZONE = zoneinfo.ZoneInfo("Pacific/Auckland")
 
-# --- THE TOGGLE SWITCH ---
-# Set SURE_USE_SIDECAR=false in your .env later to instantly revert to the HTTP API
-USE_SIDECAR = os.environ.get("SURE_USE_SIDECAR", "true").lower() == "true"
+def _setting(name, default=None):
+    from modules.config import ENVs
+
+    value = ENVs.get(name)
+    if value is not None:
+        return value
+    return os.environ.get(name, default)
+
+
+def _bool_setting(name, default=False):
+    value = _setting(name)
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"true", "1", "yes", "on"}
 
 
 def _akahu_to_sure_date(raw_date):
@@ -45,7 +56,7 @@ def push_transactions(transactions, sure_account_id):
     if not transactions:
         return 0
 
-    if USE_SIDECAR:
+    if _bool_setting("SURE_USE_SIDECAR", default=True):
         return _push_via_sidecar(transactions, sure_account_id)
     else:
         # Fallback to the original method: looping over the API one by one
@@ -58,11 +69,11 @@ def push_transactions(transactions, sure_account_id):
 
 def _push_via_api(transaction, sure_account_id):
     """The ORIGINAL HTTP API method: Post a single Akahu transaction dict to Sure Finance."""
-    sure_api_token = os.environ.get("SURE_API_TOKEN")
+    sure_api_token = _setting("SURE_API_TOKEN")
     if not sure_api_token:
         raise RuntimeError("SURE_API_TOKEN is missing. Is RUN_SYNC_TO_SURE set correctly?")
 
-    sure_url = os.environ.get("SURE_API_URL", SURE_DEFAULT_URL)
+    sure_url = _setting("SURE_API_URL", SURE_DEFAULT_URL)
 
     # Akahu and Sure use opposite sign conventions for depository accounts:
     # Akahu reports expenses as negative amounts, Sure stores expenses as
@@ -155,7 +166,7 @@ end
 puts "SUCCESS: Imported #{{created_count}} new transactions."
 """
 
-    runtime = os.environ.get("SURE_CONTAINER_RUNTIME")
+    runtime = _setting("SURE_CONTAINER_RUNTIME")
     if not runtime:
         runtime = shutil.which("podman") or shutil.which("docker")
         
@@ -165,7 +176,7 @@ puts "SUCCESS: Imported #{{created_count}} new transactions."
             "If you are running via systemd/cron, try setting SURE_CONTAINER_RUNTIME in your .env"
         )
 
-    container_name = os.environ.get("SURE_CONTAINER_NAME", "sure-core")
+    container_name = _setting("SURE_CONTAINER_NAME", "sure-core")
 
     # Pass "-" to rails runner so it reads our templated string from stdin
     cmd = [runtime, "exec", "-i", container_name, "bin/rails", "runner", "-"]

@@ -1,9 +1,15 @@
 """Module for fetching account information from various services."""
 
-import os
 import logging
 import requests
-from modules.config import AKAHU_ENDPOINT, AKAHU_HEADERS, YNAB_ENDPOINT, YNAB_HEADERS, RUN_SYNC_TO_AB
+from modules.config import (
+    AKAHU_ENDPOINT,
+    AKAHU_HEADERS,
+    ENVs,
+    RUN_SYNC_TO_AB,
+    YNAB_ENDPOINT,
+    YNAB_HEADERS,
+)
 
 if RUN_SYNC_TO_AB:
     from actual.queries import get_accounts, get_account
@@ -75,17 +81,14 @@ def fetch_actual_accounts(actual_client):
 
 def fetch_ynab_accounts():
     """Fetch accounts from YNAB"""
-    ynab_endpoint = "https://api.ynab.com/v1/"
-    ynab_headers = {"Authorization": f"Bearer {os.getenv('YNAB_BEARER_TOKEN')}"}
-
     logging.info("Fetching YNAB accounts...")
     try:
-        ynab_budget_id = os.getenv("YNAB_BUDGET_ID")
+        ynab_budget_id = ENVs.get("YNAB_BUDGET_ID")
         if not ynab_budget_id:
             raise ValueError("YNAB_BUDGET_ID environment variable is not set.")
 
         accounts_json = requests.get(
-            f"{ynab_endpoint}budgets/{ynab_budget_id}/accounts", headers=ynab_headers
+            f"{YNAB_ENDPOINT}budgets/{ynab_budget_id}/accounts", headers=YNAB_HEADERS
         ).json()
 
         ynab_accounts = {}

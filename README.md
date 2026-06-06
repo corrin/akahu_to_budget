@@ -31,7 +31,7 @@ You can find an example .env file in this repository called .env.example - just 
 
 Note that I have both YNAB and AB. In theory this script supports running with any combination of the supported budgeting apps, but it's primarily tested with YNAB and AB. If you run into edge cases, please get in contact.
 
-## Akahu 
+## Akahu
 To sign up to Akahu you need to create what they call personal API or a 'user scoped endpoint' as documented here
 https://developers.akahu.nz/reference/api-akahu-io-authentication
 
@@ -45,7 +45,7 @@ I use pikapods for my setup.  You can sign up here: https://actualbudget.org/doc
 
 Once you've signed up you can set up your accounts and create your budget. If you're coming from YNAB then there's a tool: https://json-exporter-for-ynab.netlify.app/
 
-I prefer to both have a password for my Actual Budget server AND to encrypt my data on Actual Budget. That way even if someone broke into PikaPods they wouldn't get automatic access to my financial data. The code assumes you're doing this too - you'll need to tweak it 
+I prefer to both have a password for my Actual Budget server AND to encrypt my data on Actual Budget. That way even if someone broke into PikaPods they wouldn't get automatic access to my financial data. The code assumes you're doing this too - you'll need to tweak it
 
 Now open your budget in YNAB and click 'show advanced settings'
 
@@ -57,7 +57,7 @@ You can create a personal API in YNAB as per the instructions https://api.ynab.c
 
 If you're the type of person who just wants to get up and running as quickly as possible and then circle back to fill in the gaps, these steps are for you:
 
-1. Sign in to the YNAB web app and go to the "Account Settings" page and then to the "Developer Settings" page. 
+1. Sign in to the YNAB web app and go to the "Account Settings" page and then to the "Developer Settings" page.
 2. Under the "Personal Access Tokens" section, click "New Token", enter your password and click "Generate" to get an access token.
 3. Open a terminal window and run this:
 `curl -H "Authorization: Bearer <ACCESS_TOKEN>" https://api.ynab.com/v1/budgets`
@@ -70,7 +70,7 @@ Sure Finance is a self-hosted alternative to Maybe Finance. Due to current API l
 
 ## OpenAI
 
-I haven't bothered to document this because it's optional. The setup is similar to YNAB.
+I haven't bothered to document this because it's optional.  Add the API key.  Have fun.  Currently OpenAI is only used to help mapping accounts. It would make sense to use it mapping transactions too but... that hasn't been done.
 
 ## Python
 
@@ -107,7 +107,7 @@ Run `python akahu_budget_mapping.py`
 
 This lets you interactively map your bank accounts with accounts set up in Actual Budget, YNAB, or Sure Finance.
 
-It will ask you a bunch of questions like 
+It will ask you a bunch of questions like
 ```Akahu Account: DAY TO DAY (Connection: Kiwibank)
 Here is a list of actual accounts:
 ...
@@ -165,6 +165,87 @@ pulling:
 podman build -t akahu_to_budget:local -f Containerfile .
 ```
 
+# Running on Home Assistant OS
+
+This repo also includes a Home Assistant OS add-on wrapper in
+`akahu_to_budget_addon/`. It is intended for my personal HAOS setup: the add-on
+stays running and performs a scheduled daily sync by default because Akahu is
+synced daily. That automatic recurring sync is not necessarily the
+right behavior for everyone; the normal Python, Docker/Podman, cron, systemd,
+and Flask deployment paths remain supported.
+
+The add-on uses the `ghcr.io/corrin/akahu_to_budget-haos` image, built from the
+repo root so it shares the same sync code as the other deployment methods.
+
+## HAOS setup
+
+1. Generate `akahu_budget_mapping.json` before installing the add-on:
+
+   ```bash
+   python akahu_budget_mapping.py
+   ```
+
+   This is still an interactive setup step and is easier to run on your normal
+   computer than inside Home Assistant.
+
+2. In Home Assistant, go to **Settings → Apps**.
+3. Select **Install app** to open the App Store.
+4. Open the top-right store menu, choose **Repositories**, and add this repository:
+
+   ```text
+   https://github.com/corrin/akahu_to_budget
+   ```
+
+5. Install the **Akahu to Budget** app.
+6. Copy `akahu_budget_mapping.json` into the app config directory and leave
+   the default add-on option as:
+
+   ```text
+   /config/akahu_budget_mapping.json
+   ```
+
+   If you place the file somewhere else, update the `mapping_file` option to
+   match that path.
+
+7. Fill in the app options for the services you use:
+
+   - `RUN_SYNC_TO_AB`
+   - `RUN_SYNC_TO_YNAB`
+   - Akahu tokens
+   - Actual Budget settings, if enabled
+   - YNAB settings, if enabled
+   - Sure Finance settings, if enabled
+
+8. Start the app and check the app log. It should print the options file,
+   mapping file, and sync interval before the first sync starts.
+
+## HAOS options
+
+The add-on reads settings from the Supervisor options UI. By default it expects
+the mapping file at:
+
+```text
+/config/akahu_budget_mapping.json
+```
+
+The default `sync_interval` is `86400`, which means one sync per day. Set
+`log_file` to an empty string to use Supervisor logs only; that is the default
+for the add-on.
+
+The add-on fails loudly if the mapping file is missing or if required options
+for the enabled sync target are blank.
+
+Sure Finance sidecar mode requires access to the Sure Rails container runtime.
+For a normal Home Assistant OS add-on, prefer `SURE_USE_SIDECAR: false` unless
+the add-on can actually execute Docker/Podman against your Sure host.
+
+## Updating on HAOS
+
+Pushes to `main` publish a fresh `ghcr.io/corrin/akahu_to_budget-haos:latest`
+image. Tagged releases also publish versioned images. After pulling repo
+updates in the Add-on Store, update/restart the add-on so HAOS pulls the new
+image.
+
 # Running Tests
 
 There are some tests to validate the API is still working.  You can probably ignore them.
@@ -180,7 +261,7 @@ For now it's not really doing anything.
 This script natively supports pushing Akahu transactions to a self-hosted instance of [Sure Finance](https://github.com/we-promise/sure). However, there is currently an architectural quirk in the Sure Finance API that requires a temporary workaround for deduplication.
 
 ### The Problem
-When syncing bank transactions, this script uses a 7-day lookback window to ensure pending transactions aren't missed when they finally settle. 
+When syncing bank transactions, this script uses a 7-day lookback window to ensure pending transactions aren't missed when they finally settle.
 
 While Actual Budget and YNAB natively handle this overlapping window by deduplicating payloads via an `imported_id`, the Sure Finance `POST /api/v1/transactions` endpoint currently drops `external_id` from incoming payloads due to strong parameters. This causes the Sure API to blindly duplicate transactions on every daily sync.
 
@@ -188,7 +269,7 @@ While Actual Budget and YNAB natively handle this overlapping window by deduplic
 To achieve native deduplication, this integration bypasses the HTTP API and pipes a self-contained Ruby script directly into the Sure Finance Rails container. This allows the script to utilize Rails' internal `find_or_initialize_by(external_id:)` logic, guaranteeing perfect database-level deduplication.
 
 ### Configuration
-By default, the script looks for the `docker` or `podman` executable and attempts to execute against a container named `sure-core`. 
+By default, the script looks for the `docker` or `podman` executable and attempts to execute against a container named `sure-core`.
 
 If you are running this sync script via `systemd` or `cron` (where the `$PATH` is restricted), or if your container is named differently, set these variables in your `.env` file:
 ```env
@@ -198,7 +279,7 @@ SURE_USE_SIDECAR=true                        # Set to false to revert to the HTT
 ```
 
 ### The Future: Removing the Sidecar
-There is an active plan to submit a PR to the upstream Sure Finance repository to whitelist `:external_id` in their API controllers. 
+There is an active plan to submit a PR to the upstream Sure Finance repository to whitelist `:external_id` in their API controllers.
 
 Once Sure Finance updates their API to accept `external_id` natively:
 1. Users can simply set `SURE_USE_SIDECAR=false` in their `.env` file.

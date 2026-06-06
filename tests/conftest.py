@@ -19,6 +19,7 @@ def clean_env(monkeypatch):
     keys = [
         "RUN_SYNC_TO_YNAB",
         "RUN_SYNC_TO_AB",
+        "RUN_SYNC_TO_SURE",
         "FORCE_REFRESH",
         "DEBUG_SYNC",
         "AKAHU_USER_TOKEN",
@@ -28,6 +29,19 @@ def clean_env(monkeypatch):
         "ACTUAL_PASSWORD",
         "ACTUAL_ENCRYPTION_KEY",
         "ACTUAL_SYNC_ID",
+        "YNAB_BUDGET_ID",
+        "SURE_API_TOKEN",
+        "SURE_API_URL",
+        "SURE_CONTAINER_RUNTIME",
+        "SURE_CONTAINER_NAME",
+        "SURE_USE_SIDECAR",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENAI_MODEL",
+        "MAPPING_FILE",
+        "LOG_FILE",
+        "SYNC_INTERVAL",
+        "AKAHU_TO_BUDGET_OPTIONS_FILE",
     ]
     for k in keys:
         monkeypatch.delenv(k, raising=False)

@@ -7,6 +7,8 @@ as the integration matures.
 """
 
 import json
+import importlib
+import sys
 
 import pytest
 import responses
@@ -14,15 +16,28 @@ import responses
 
 @pytest.fixture(autouse=True)
 def _sure_env(monkeypatch):
+    monkeypatch.setenv("RUN_SYNC_TO_YNAB", "false")
+    monkeypatch.setenv("RUN_SYNC_TO_AB", "false")
+    monkeypatch.setenv("RUN_SYNC_TO_SURE", "true")
+    monkeypatch.setenv("AKAHU_USER_TOKEN", "akahu-test-user")
+    monkeypatch.setenv("AKAHU_APP_TOKEN", "akahu-test-app")
     monkeypatch.setenv("SURE_API_TOKEN", "sure-test-token")
+    monkeypatch.setenv("SURE_USE_SIDECAR", "false")
     monkeypatch.delenv("SURE_API_URL", raising=False)
+    sys.modules.pop("modules.config", None)
+
+
+def _reload_config():
+    import modules.config
+
+    return importlib.reload(modules.config)
 
 
 @responses.activate
 def test_push_transactions_flips_sign_and_converts_date_to_nz_local(monkeypatch):
     from sure_client import push_transactions, SURE_DEFAULT_URL
 
-    monkeypatch.setattr("sure_client.USE_SIDECAR", False)
+    _reload_config()
 
     responses.add(responses.POST, SURE_DEFAULT_URL, json={"ok": True}, status=200)
 
@@ -55,10 +70,9 @@ def test_push_transactions_flips_sign_and_converts_date_to_nz_local(monkeypatch)
 def test_push_transactions_uses_url_override(monkeypatch):
     from sure_client import push_transactions
 
-    monkeypatch.setattr("sure_client.USE_SIDECAR", False)
-
     custom_url = "https://sure.example.test/api/v1/transactions"
     monkeypatch.setenv("SURE_API_URL", custom_url)
+    _reload_config()
     responses.add(responses.POST, custom_url, json={"ok": True}, status=200)
 
     push_transactions(
@@ -73,8 +87,11 @@ def test_push_transactions_uses_url_override(monkeypatch):
 def test_push_transactions_raises_when_token_missing(monkeypatch):
     from sure_client import push_transactions
 
-    monkeypatch.setattr("sure_client.USE_SIDECAR", False)
+    monkeypatch.setenv("RUN_SYNC_TO_YNAB", "true")
+    monkeypatch.setenv("RUN_SYNC_TO_SURE", "false")
+    monkeypatch.setenv("YNAB_BEARER_TOKEN", "ynab-token")
     monkeypatch.delenv("SURE_API_TOKEN", raising=False)
+    _reload_config()
 
     with pytest.raises(RuntimeError, match="SURE_API_TOKEN"):
         push_transactions([{"_id": "x", "amount": 1.0, "date": ""}], "sure-acc-1")

@@ -7,29 +7,37 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import httpx
 import requests
-from actual import Actual
 
 # Populate os.environ before modules.config reads environment variables.
 load_dotenv()
 
 from modules.account_fetcher import trigger_akahu_refresh
 from modules.mapping_store import load_existing_mapping, save_mapping
-from modules.config import RUN_SYNC_TO_AB, RUN_SYNC_TO_YNAB, RUN_SYNC_TO_SURE, AKAHU_ENDPOINT, AKAHU_HEADERS
-from modules.config import ENVs
+from modules.config import (
+    AKAHU_ENDPOINT,
+    AKAHU_HEADERS,
+    ENVs,
+    LOG_FILE,
+    MAPPING_FILE,
+    RUN_SYNC_TO_AB,
+    RUN_SYNC_TO_SURE,
+    RUN_SYNC_TO_YNAB,
+)
 from modules.sync_handler import sync_to_ab, sync_to_ynab
 from modules.transaction_handler import get_all_akahu
-import sure_client
 
 
 def configure_logging():
     """Configure logging once for command-line and Flask entrypoints."""
+    if LOG_FILE is None:
+        handlers = [logging.StreamHandler()]
+    else:
+        handlers = [logging.FileHandler(LOG_FILE), logging.StreamHandler()]
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler("app.log"),
-            logging.StreamHandler(),
-        ],
+        handlers=handlers,
     )
 
 
@@ -37,6 +45,8 @@ def configure_logging():
 def get_actual_client():
     """Yield an Actual client if Actual sync is enabled; otherwise yield None."""
     if RUN_SYNC_TO_AB:
+        from actual import Actual
+
         try:
             logging.info(
                 f"Attempting to connect to Actual server at {ENVs['ACTUAL_SERVER_URL']}"
@@ -65,6 +75,8 @@ def get_actual_client():
 
 def sync_to_sure(mapping_list):
     """Pull transactions from Akahu and push them to Sure Finance."""
+    import sure_client
+
     sure_count = 0
     current_time = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     successful_syncs = set()
@@ -84,7 +96,7 @@ def sync_to_sure(mapping_list):
         account_failed = False
         if akahu_df is not None and not akahu_df.empty:
             transactions = [row.to_dict() for _, row in akahu_df.iterrows()]
-            
+
             try:
                 sure_client.push_transactions(transactions, sure_id)
                 sure_count += len(transactions)
@@ -102,17 +114,19 @@ def sync_to_sure(mapping_list):
 
     # Safely persist watermarks utilizing Corrin's mapping store architecture
     if successful_syncs:
-        akahu_accs, actual_accs, ynab_accs, full_mapping = load_existing_mapping()
+        akahu_accs, actual_accs, ynab_accs, full_mapping = load_existing_mapping(
+            MAPPING_FILE
+        )
         for acc_id in successful_syncs:
             if acc_id in full_mapping:
                 full_mapping[acc_id]["sure_synced_datetime"] = current_time
-                
+
         save_mapping({
             "akahu_accounts": akahu_accs,
             "actual_accounts": actual_accs,
             "ynab_accounts": ynab_accs,
             "mapping": full_mapping
-        })
+        }, MAPPING_FILE)
 
     return sure_count
 
@@ -124,7 +138,7 @@ def run_sync(account_ids=None, debug_mode=None):
 
     trigger_akahu_refresh()
 
-    _, _, _, mapping_list = load_existing_mapping()
+    _, _, _, mapping_list = load_existing_mapping(MAPPING_FILE)
 
     if account_ids:
         filtered_mapping = {k: v for k, v in mapping_list.items() if k in account_ids}

@@ -1,0 +1,60 @@
+name: Akahu to Budget
+slug: akahu_to_budget
+description: Personal scheduled Akahu to Actual Budget/YNAB sync.
+url: https://github.com/corrin/akahu_to_budget
+version: "0.1.0"
+image: ghcr.io/corrin/akahu_to_budget-haos
+stage: experimental
+startup: application
+boot: auto
+arch:
+  - aarch64
+  - amd64
+init: false
+map:
+  - addon_config:rw
+options:
+  RUN_SYNC_TO_YNAB: false
+  RUN_SYNC_TO_AB: true
+  RUN_SYNC_TO_SURE: false
+  AKAHU_USER_TOKEN: ""
+  AKAHU_APP_TOKEN: ""
+  ACTUAL_SERVER_URL: ""
+  ACTUAL_PASSWORD: ""
+  ACTUAL_ENCRYPTION_KEY: ""
+  ACTUAL_SYNC_ID: ""
+  YNAB_BEARER_TOKEN: ""
+  YNAB_BUDGET_ID: ""
+  SURE_API_TOKEN: ""
+  SURE_API_URL: ""
+  SURE_USE_SIDECAR: true
+  SURE_CONTAINER_RUNTIME: ""
+  SURE_CONTAINER_NAME: sure-core
+  FORCE_REFRESH: false
+  DEBUG_SYNC: false
+  mapping_file: /config/akahu_budget_mapping.json
+  log_file: ""
+  # Akahu is synced daily in this personal HAOS deployment.
+  sync_interval: 86400
+schema:
+  RUN_SYNC_TO_YNAB: bool
+  RUN_SYNC_TO_AB: bool
+  RUN_SYNC_TO_SURE: bool
+  AKAHU_USER_TOKEN: password
+  AKAHU_APP_TOKEN: password
+  ACTUAL_SERVER_URL: str?
+  ACTUAL_PASSWORD: password?
+  ACTUAL_ENCRYPTION_KEY: password?
+  ACTUAL_SYNC_ID: str?
+  YNAB_BEARER_TOKEN: password?
+  YNAB_BUDGET_ID: str?
+  SURE_API_TOKEN: password?
+  SURE_API_URL: str?
+  SURE_USE_SIDECAR: bool
+  SURE_CONTAINER_RUNTIME: str?
+  SURE_CONTAINER_NAME: str?
+  FORCE_REFRESH: bool
+  DEBUG_SYNC: bool
+  mapping_file: str
+  log_file: str
+  sync_interval: int(1,)
