@@ -6,21 +6,23 @@ import json
 import logging
 import pandas as pd
 import requests
-from actual.queries import (
-    create_transaction,
-    get_ruleset,
-    reconcile_transaction,
-    get_categories,
-    get_payee,
-    get_payees,
-    get_account,
-    match_transaction,
-    set_transaction_payee,
-)
 from typing import Dict
 
 from modules.account_fetcher import get_actual_balance
-from modules.config import AKAHU_HEADERS
+from modules.config import AKAHU_HEADERS, RUN_SYNC_TO_AB
+
+if RUN_SYNC_TO_AB:
+    from actual.queries import (
+        create_transaction,
+        get_ruleset,
+        reconcile_transaction,
+        get_categories,
+        get_payee,
+        get_payees,
+        get_account,
+        match_transaction,
+        set_transaction_payee,
+    )
 
 
 def get_cached_names(actual) -> tuple[Dict[str, str], Dict[str, str]]:
@@ -295,7 +297,6 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
                         payee_name  # imported_payee
                     )
             else:
-                # Normal non-debug path using reconcile_transaction
                 # Normal non-debug path using reconcile_transaction
                 # Set update_existing=False since we want to detect duplicates but not update them
                 reconciled_transaction = reconcile_transaction(

@@ -1,5 +1,3 @@
-"""Flask webhook app for Akahu to Budget."""
-
 import os
 import logging
 import argparse
@@ -7,9 +5,16 @@ import signal
 import sys
 
 from modules.mapping_store import load_existing_mapping
-from modules.config import AKAHU_ENDPOINT, AKAHU_HEADERS
+from modules.config import AKAHU_ENDPOINT, AKAHU_HEADERS, RUN_SYNC_TO_AB
 from modules.sync_runner import configure_logging, get_actual_client, run_sync
 from modules.webhook_handler import create_flask_app
+import sure_client
+
+# actualpy is an optional dependency; modules.config raises at import time if
+# RUN_SYNC_TO_AB=true and it's missing. Importing here is unconditional because
+# get_actual_client() guards on RUN_SYNC_TO_AB before constructing the client.
+if RUN_SYNC_TO_AB:
+    from actual import Actual
 
 
 # Create and export the Flask app for WSGI
@@ -19,6 +24,7 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
 signal.signal(signal.SIGTERM, signal_handler)  # Handle kill
+
 
 def create_application():
     """Create Flask application."""

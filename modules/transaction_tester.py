@@ -3,7 +3,11 @@
 import logging
 import time
 import pandas as pd
-from actual.queries import get_transactions
+
+from modules.config import RUN_SYNC_TO_AB
+
+if RUN_SYNC_TO_AB:
+    from actual.queries import get_transactions
 
 # Test transaction template - matches Akahu API format
 TEST_TRANSACTION_TEMPLATE = {

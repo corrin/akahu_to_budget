@@ -16,6 +16,7 @@ map:
 options:
   RUN_SYNC_TO_YNAB: false
   RUN_SYNC_TO_AB: true
+  RUN_SYNC_TO_SURE: false
   AKAHU_USER_TOKEN: ""
   AKAHU_APP_TOKEN: ""
   ACTUAL_SERVER_URL: ""
@@ -24,6 +25,11 @@ options:
   ACTUAL_SYNC_ID: ""
   YNAB_BEARER_TOKEN: ""
   YNAB_BUDGET_ID: ""
+  SURE_API_TOKEN: ""
+  SURE_API_URL: ""
+  SURE_USE_SIDECAR: true
+  SURE_CONTAINER_RUNTIME: ""
+  SURE_CONTAINER_NAME: sure-core
   FORCE_REFRESH: false
   DEBUG_SYNC: false
   mapping_file: /config/akahu_budget_mapping.json
@@ -33,6 +39,7 @@ options:
 schema:
   RUN_SYNC_TO_YNAB: bool
   RUN_SYNC_TO_AB: bool
+  RUN_SYNC_TO_SURE: bool
   AKAHU_USER_TOKEN: password
   AKAHU_APP_TOKEN: password
   ACTUAL_SERVER_URL: str?
@@ -41,6 +48,11 @@ schema:
   ACTUAL_SYNC_ID: str?
   YNAB_BEARER_TOKEN: password?
   YNAB_BUDGET_ID: str?
+  SURE_API_TOKEN: password?
+  SURE_API_URL: str?
+  SURE_USE_SIDECAR: bool
+  SURE_CONTAINER_RUNTIME: str?
+  SURE_CONTAINER_NAME: str?
   FORCE_REFRESH: bool
   DEBUG_SYNC: bool
   mapping_file: str

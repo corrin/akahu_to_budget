@@ -22,7 +22,6 @@ from modules.config import (
     MAPPING_FILE,
 )
 
-
 def get_account_priority(account_entry):
     """
     Determine processing priority for accounts.

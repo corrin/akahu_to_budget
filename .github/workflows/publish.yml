@@ -66,6 +66,8 @@ jobs:
           context: .
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_VERSION=0.1.0
           push: true
           tags: ${{ steps.haos_meta.outputs.tags }}
           labels: ${{ steps.haos_meta.outputs.labels }}

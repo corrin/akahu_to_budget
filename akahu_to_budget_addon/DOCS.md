@@ -19,3 +19,7 @@ repo root so this wrapper does not carry a separate copy of the sync code.
 
 Set `log_file` to an empty string for Supervisor-only logging. That is the
 default for this add-on.
+
+Sure Finance sidecar mode needs Docker/Podman access to the Sure Rails
+container. In most Home Assistant OS installs, leave `SURE_USE_SIDECAR` disabled
+and use the Sure HTTP API options instead.

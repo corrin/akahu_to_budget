@@ -2,14 +2,17 @@
 
 import logging
 import requests
-from actual.queries import get_accounts, get_account
 from modules.config import (
     AKAHU_ENDPOINT,
     AKAHU_HEADERS,
     ENVs,
+    RUN_SYNC_TO_AB,
     YNAB_ENDPOINT,
     YNAB_HEADERS,
 )
+
+if RUN_SYNC_TO_AB:
+    from actual.queries import get_accounts, get_account
 
 
 def is_simple_value(value):

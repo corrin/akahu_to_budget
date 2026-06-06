@@ -1,16 +1,13 @@
-# THis script is responsible for reading from Akahu, Actual Budget and YNAB
-# ANd creating a mapping JSON
-#
-# It's also handy because it acts as a sanity test of the APIs
-# If this works then you know that connecting to all three is working, and there's no risk of breaking your budgets.
+# This script is responsible for reading from Akahu, Actual Budget and YNAB
+# And creating a mapping JSON
 
 import logging
-from actual import Actual
 from modules.config import (
     ENVs,
     LOG_FILE,
     MAPPING_FILE,
     RUN_SYNC_TO_AB,
+    RUN_SYNC_TO_SURE,
     RUN_SYNC_TO_YNAB,
 )
 
@@ -42,7 +39,7 @@ from modules.mapping_store import load_existing_mapping, save_mapping, remove_se
 DEBUG = False
 
 # Define required environment variables based on sync settings
-logging.info(f"Sync targets - YNAB: {RUN_SYNC_TO_YNAB}, AB: {RUN_SYNC_TO_AB}")
+logging.info(f"Sync targets - YNAB: {RUN_SYNC_TO_YNAB}, AB: {RUN_SYNC_TO_AB}, SURE: {RUN_SYNC_TO_SURE}")
 
 required_envs = [
     'AKAHU_USER_TOKEN',
@@ -63,6 +60,11 @@ if RUN_SYNC_TO_YNAB:
         'YNAB_BUDGET_ID',
     ])
 
+if RUN_SYNC_TO_SURE:
+    required_envs.extend([
+        'SURE_API_TOKEN',
+    ])
+
 if DEBUG:
     for key, value in ENVs.items():
         logging.info("Environment variable {key}: {value}".format(key=key, value=value))
@@ -81,6 +83,8 @@ def main():
     latest_ynab_accounts = {}
 
     if RUN_SYNC_TO_AB:
+        from actual import Actual
+
         try:
             with Actual(
                     base_url=ENVs['ACTUAL_SERVER_URL'],
@@ -141,11 +145,11 @@ def main():
 
     # Compare accounts for changes
     (akahu_accounts_match, actual_accounts_match, ynab_accounts_match) = check_for_changes(
-        existing_akahu_accounts, 
-        latest_akahu_accounts, 
-        existing_actual_accounts, 
-        latest_actual_accounts, 
-        existing_ynab_accounts, 
+        existing_akahu_accounts,
+        latest_akahu_accounts,
+        existing_actual_accounts,
+        latest_actual_accounts,
+        existing_ynab_accounts,
         latest_ynab_accounts
     )
 
@@ -167,6 +171,34 @@ def main():
         if RUN_SYNC_TO_AB:
             new_mapping = match_accounts(new_mapping, akahu_accounts, actual_accounts, "actual", use_openai=use_openai)
 
+    # Interactive Mapping Loop for Sure Finance
+    if RUN_SYNC_TO_SURE:
+        print("\n" + "="*50)
+        print("Sure Finance Interactive Mapping")
+        print("="*50)
+        print("Please provide the Sure Finance Account ID for your Akahu accounts.")
+        print("You can find this ID in the URL when viewing an account in the Sure UI.")
+        print("(Press Enter to skip an account if you don't want to map it to Sure)")
+
+        for akahu_id, akahu_acc in akahu_accounts.items():
+            current_sure_id = new_mapping.get(akahu_id, {}).get("sure_id")
+
+            # Skip if already mapped
+            if current_sure_id:
+                logging.info(f"[{akahu_acc['name']}] is already mapped to Sure ID: {current_sure_id}")
+                continue
+
+            print(f"\nBank Account: {akahu_acc['name']}")
+            user_input = input("Enter Sure Account ID: ").strip()
+
+            if user_input:
+                if akahu_id not in new_mapping:
+                    new_mapping[akahu_id] = {}
+                new_mapping[akahu_id]["sure_id"] = user_input
+                print(f"Mapped '{akahu_acc['name']}' to Sure ID '{user_input}'.")
+            else:
+                print("Skipped Akahu mapping to Sure ID.")
+
     # Step 7: Save the final mapping
     data_to_save = {
         "akahu_accounts": akahu_accounts,
@@ -177,6 +209,7 @@ def main():
 
     data_without_seq = remove_seq(data_to_save)
     save_mapping(data_without_seq, MAPPING_FILE)
+    logging.info("Mapping saved successfully.")
 
 if __name__ == "__main__":
     main()

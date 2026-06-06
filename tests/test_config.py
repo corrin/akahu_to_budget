@@ -52,6 +52,7 @@ def test_missing_flag_fails_loud(clean_env, reload_config):
 def test_both_flags_false_fails_loud(clean_env, reload_config):
     clean_env.setenv("RUN_SYNC_TO_YNAB", "false")
     clean_env.setenv("RUN_SYNC_TO_AB", "false")
+    clean_env.setenv("RUN_SYNC_TO_SURE", "false")
     with pytest.raises(EnvironmentError, match="must be True"):
         reload_config()
 
@@ -139,6 +140,7 @@ def test_home_assistant_options_override_env(clean_env, reload_config, tmp_path)
             {
                 "RUN_SYNC_TO_YNAB": False,
                 "RUN_SYNC_TO_AB": True,
+                "RUN_SYNC_TO_SURE": False,
                 "AKAHU_USER_TOKEN": "ha-akahu-user",
                 "AKAHU_APP_TOKEN": "ha-akahu-app",
                 "ACTUAL_SERVER_URL": "https://actual.ha.test",
@@ -160,6 +162,7 @@ def test_home_assistant_options_override_env(clean_env, reload_config, tmp_path)
 
     assert cfg.RUN_SYNC_TO_YNAB is False
     assert cfg.RUN_SYNC_TO_AB is True
+    assert cfg.RUN_SYNC_TO_SURE is False
     assert cfg.ENVs["AKAHU_USER_TOKEN"] == "ha-akahu-user"
     assert cfg.MAPPING_FILE == "/data/akahu_budget_mapping.json"
     assert cfg.LOG_FILE is None
@@ -173,6 +176,44 @@ def test_invalid_home_assistant_options_json_fails_loud(clean_env, reload_config
 
     with pytest.raises(EnvironmentError, match="Invalid JSON"):
         reload_config()
+
+
+def test_sure_enabled_requires_sure_api_token(clean_env, reload_config):
+    clean_env.setenv("RUN_SYNC_TO_YNAB", "false")
+    clean_env.setenv("RUN_SYNC_TO_AB", "false")
+    clean_env.setenv("RUN_SYNC_TO_SURE", "true")
+    clean_env.setenv("AKAHU_USER_TOKEN", "x")
+    clean_env.setenv("AKAHU_APP_TOKEN", "x")
+
+    with pytest.raises(EnvironmentError, match="SURE_API_TOKEN"):
+        reload_config()
+
+
+def test_home_assistant_options_support_sure_settings(clean_env, reload_config, tmp_path):
+    options_file = tmp_path / "options.json"
+    options_file.write_text(
+        json.dumps(
+            {
+                "RUN_SYNC_TO_YNAB": False,
+                "RUN_SYNC_TO_AB": False,
+                "RUN_SYNC_TO_SURE": True,
+                "AKAHU_USER_TOKEN": "ha-akahu-user",
+                "AKAHU_APP_TOKEN": "ha-akahu-app",
+                "SURE_API_TOKEN": "ha-sure-token",
+                "SURE_API_URL": "https://sure.example.test/api/v1/transactions",
+                "SURE_USE_SIDECAR": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    clean_env.setenv("AKAHU_TO_BUDGET_OPTIONS_FILE", str(options_file))
+    cfg = reload_config()
+
+    assert cfg.RUN_SYNC_TO_SURE is True
+    assert cfg.ENVs["SURE_API_TOKEN"] == "ha-sure-token"
+    assert cfg.ENVs["SURE_API_URL"] == "https://sure.example.test/api/v1/transactions"
+    assert cfg.ENVs["SURE_USE_SIDECAR"] == "False"
 
 
 def test_explicit_missing_home_assistant_options_file_fails_loud(

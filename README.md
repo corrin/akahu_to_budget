@@ -1,37 +1,37 @@
 # akahu_to_budget
-One-way sync of transactions from Akahu to either YNAB or Actual Budget.
+One-way sync of transactions from Akahu to YNAB, Actual Budget, or Sure Finance.
 
-We support both Actual Budget and YNAB.  You can sync to both or to just one.
+We support Actual Budget, YNAB, and Sure Finance. You can sync to all of them, or just pick the ones you use.
 
 # Project status
 
 I started writing this script some time ago. As of 2024-12-28... I've finally swapped from using my old hodgepodge version to using this.
-That means that today, it's feature complete but not yet battle-hardened.  If you're reading this notably after Dec 2024 then it should be pretty robust.
+That means that today, it's feature complete but not yet battle-hardened. If you're reading this notably after Dec 2024 then it should be pretty robust.
 
-Also in terms of my personal setup, I haven't yet fully committed to giving up YNAB and an vascilating between YNAB and AB.  You might see oddities in the data 
-created for AB (e.g. Payees, failing to trigger rules).  Please raise bugs.
+Also in terms of my personal setup, I haven't yet fully committed to giving up YNAB and am vacillating between YNAB and AB. You might see oddities in the data created for AB (e.g. Payees, failing to trigger rules). Please raise bugs.
+
+*(Note: Sure Finance support was added recently for users looking for an alternative self-hosted platform).*
 
 # Setup
 
 1. Create an Akahu account and an Akahu app: [https://my.akahu.nz/login](https://my.akahu.nz/login)
 2. Optionally set up an OpenAI account and get an API key for smarter account mapping: [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
-3. Set up an Actual Budget Server and get the server URL, password, encryption key, and sync ID: [https://actualbudget.org/](https://actualbudget.org/).  I used PikaPods
+3. Set up an Actual Budget Server and get the server URL, password, encryption key, and sync ID: [https://actualbudget.org/](https://actualbudget.org/). I used PikaPods
 4. And/OR in YNAB get a bearer token and the budget ID: [https://api.youneedabudget.com/](https://api.youneedabudget.com/)
-5. Check out this repository
-6. Create a virtual environment and run `pip install -r requirements.txt`
-7. Create a `.env` file in the root of the project. (see [.env.example](./.env.example))
+5. And/OR set up a self-hosted [Sure Finance](https://github.com/we-promise/sure) instance.
+6. Check out this repository
+7. Create a virtual environment and run `pip install -r requirements.txt`
+8. Create a `.env` file in the root of the project. (see [.env.example](./.env.example))
 
-Note that the OPENAI key is optional.  I included it more for fun.  It makes the matching a bit smarter.  In the future
-I might make it so it tries to guess your category based on the transaction memo.
+Note that the OPENAI key is optional. I included it more for fun. It makes the matching a bit smarter. In the future I might make it so it tries to guess your category based on the transaction memo.
 
-You can find an exammple .env file in this repository called .env.example - just rename it to .env
+You can find an example .env file in this repository called .env.example - just rename it to .env
 
 # Setup (detail)
 
-Note that I have both YNAB and AB.  In theory this script supports running with either or both, but it's only been
-tested with both.  If you have only one then please get in contact and let me know how you got on.
+Note that I have both YNAB and AB. In theory this script supports running with any combination of the supported budgeting apps, but it's primarily tested with YNAB and AB. If you run into edge cases, please get in contact.
 
-## Akahu 
+## Akahu
 To sign up to Akahu you need to create what they call personal API or a 'user scoped endpoint' as documented here
 https://developers.akahu.nz/reference/api-akahu-io-authentication
 
@@ -43,11 +43,9 @@ Here's a picture from my setup
 
 I use pikapods for my setup.  You can sign up here: https://actualbudget.org/docs/install/pikapods/
 
-Once you've signed up you can set up your accounts and create your budget.  If you're coming from YNAB then there's a tool: https://json-exporter-for-ynab.netlify.app/
+Once you've signed up you can set up your accounts and create your budget. If you're coming from YNAB then there's a tool: https://json-exporter-for-ynab.netlify.app/
 
-I prefer to both have a password for my Actual Budget server AND to encrypt my data on Actual Budget.  That way even if
-someone broke into PikaPods they wouldn't get automatic access to my financial data.  The code assumes you're doing this
-too - you'll need to tweak it 
+I prefer to both have a password for my Actual Budget server AND to encrypt my data on Actual Budget. That way even if someone broke into PikaPods they wouldn't get automatic access to my financial data. The code assumes you're doing this too - you'll need to tweak it
 
 Now open your budget in YNAB and click 'show advanced settings'
 
@@ -59,12 +57,16 @@ You can create a personal API in YNAB as per the instructions https://api.ynab.c
 
 If you're the type of person who just wants to get up and running as quickly as possible and then circle back to fill in the gaps, these steps are for you:
 
-1. Sign in to the YNAB web app and go to the "Account Settings" page and then to the "Developer Settings" page. 
+1. Sign in to the YNAB web app and go to the "Account Settings" page and then to the "Developer Settings" page.
 2. Under the "Personal Access Tokens" section, click "New Token", enter your password and click "Generate" to get an access token.
 3. Open a terminal window and run this:
-curl -H "Authorization: Bearer <ACCESS_TOKEN>" https://api.ynab.com/v1/budgets
+`curl -H "Authorization: Bearer <ACCESS_TOKEN>" https://api.ynab.com/v1/budgets`
 
 ![YNAB Setup](documentation/ynab_setup.png)
+
+## Sure Finance
+
+Sure Finance is a self-hosted alternative to Maybe Finance. Due to current API limitations regarding transaction deduplication, syncing to Sure Finance requires Docker/Podman access to the host machine so the script can communicate directly with the database. See the **Sure Finance Sync & Deduplication Sidecar** section below for configuration details.
 
 ## OpenAI
 
@@ -103,9 +105,9 @@ pip install -r requirements_web.txt
 
 Run `python akahu_budget_mapping.py`
 
-This lets you interactively map your bank accounts with accounts set up in Actual Budget or YNAB.
+This lets you interactively map your bank accounts with accounts set up in Actual Budget, YNAB, or Sure Finance.
 
-It will ask you a bunch of questions like 
+It will ask you a bunch of questions like
 ```Akahu Account: DAY TO DAY (Connection: Kiwibank)
 Here is a list of actual accounts:
 ...
@@ -212,6 +214,7 @@ repo root so it shares the same sync code as the other deployment methods.
    - Akahu tokens
    - Actual Budget settings, if enabled
    - YNAB settings, if enabled
+   - Sure Finance settings, if enabled
 
 8. Start the app and check the app log. It should print the options file,
    mapping file, and sync interval before the first sync starts.
@@ -232,6 +235,10 @@ for the add-on.
 The add-on fails loudly if the mapping file is missing or if required options
 for the enabled sync target are blank.
 
+Sure Finance sidecar mode requires access to the Sure Rails container runtime.
+For a normal Home Assistant OS add-on, prefer `SURE_USE_SIDECAR: false` unless
+the add-on can actually execute Docker/Podman against your Sure host.
+
 ## Updating on HAOS
 
 Pushes to `main` publish a fresh `ghcr.io/corrin/akahu_to_budget-haos:latest`
@@ -247,3 +254,34 @@ There are some tests to validate the API is still working.  You can probably ign
 
 I set up the OpenAI key for mapping accounts more out of self-amusement.  I have also toyed with the idea of using it to clean payees, assign transactions to categories, etc.
 For now it's not really doing anything.
+
+
+# Sure Finance Sync & Deduplication Sidecar
+
+This script natively supports pushing Akahu transactions to a self-hosted instance of [Sure Finance](https://github.com/we-promise/sure). However, there is currently an architectural quirk in the Sure Finance API that requires a temporary workaround for deduplication.
+
+### The Problem
+When syncing bank transactions, this script uses a 7-day lookback window to ensure pending transactions aren't missed when they finally settle.
+
+While Actual Budget and YNAB natively handle this overlapping window by deduplicating payloads via an `imported_id`, the Sure Finance `POST /api/v1/transactions` endpoint currently drops `external_id` from incoming payloads due to strong parameters. This causes the Sure API to blindly duplicate transactions on every daily sync.
+
+### The Solution (The Docker Sidecar)
+To achieve native deduplication, this integration bypasses the HTTP API and pipes a self-contained Ruby script directly into the Sure Finance Rails container. This allows the script to utilize Rails' internal `find_or_initialize_by(external_id:)` logic, guaranteeing perfect database-level deduplication.
+
+### Configuration
+By default, the script looks for the `docker` or `podman` executable and attempts to execute against a container named `sure-core`.
+
+If you are running this sync script via `systemd` or `cron` (where the `$PATH` is restricted), or if your container is named differently, set these variables in your `.env` file:
+```env
+SURE_CONTAINER_RUNTIME=/path/to/your/docker  # e.g., /usr/bin/docker
+SURE_CONTAINER_NAME=sure-core                # The name of your Rails container
+SURE_USE_SIDECAR=true                        # Set to false to revert to the HTTP API - useful once external_id accessible via API
+```
+
+### The Future: Removing the Sidecar
+There is an active plan to submit a PR to the upstream Sure Finance repository to whitelist `:external_id` in their API controllers.
+
+Once Sure Finance updates their API to accept `external_id` natively:
+1. Users can simply set `SURE_USE_SIDECAR=false` in their `.env` file.
+2. The Python script will instantly stop using Docker and revert to standard, idempotent HTTP `POST` requests.
+3. The sidecar logic (`_push_via_sidecar`) can be safely deleted from `sure_client.py`.

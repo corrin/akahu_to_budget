@@ -25,6 +25,7 @@ DEFAULT_SYNC_INTERVAL = 86400
 class AppConfig:
     run_sync_to_ynab: bool
     run_sync_to_ab: bool
+    run_sync_to_sure: bool
     force_refresh: bool
     debug_sync: bool
     mapping_file: str
@@ -119,16 +120,28 @@ def load_config(overrides=None, options_file=None):
 
     run_sync_to_ynab = _bool_value(values.get("RUN_SYNC_TO_YNAB"), "RUN_SYNC_TO_YNAB")
     run_sync_to_ab = _bool_value(values.get("RUN_SYNC_TO_AB"), "RUN_SYNC_TO_AB")
+    run_sync_to_sure = _bool_value(
+        values.get("RUN_SYNC_TO_SURE", False), "RUN_SYNC_TO_SURE"
+    )
     force_refresh = _bool_value(values.get("FORCE_REFRESH", False), "FORCE_REFRESH")
     debug_sync = _bool_value(values.get("DEBUG_SYNC", False), "DEBUG_SYNC")
 
-    if not run_sync_to_ynab and not run_sync_to_ab:
-        logging.error(
-            "Environment variable RUN_SYNC_TO_YNAB or RUN_SYNC_TO_AB must be True."
+    if run_sync_to_ab:
+        try:
+            import actual  # noqa: F401
+        except ImportError as e:
+            raise ImportError(
+                "RUN_SYNC_TO_AB=true but actualpy is not installed. "
+                "Install it with: pip install -r requirements_actual.txt"
+            ) from e
+
+    if not run_sync_to_ynab and not run_sync_to_ab and not run_sync_to_sure:
+        msg = (
+            "At least one of RUN_SYNC_TO_YNAB, RUN_SYNC_TO_AB, "
+            "RUN_SYNC_TO_SURE must be True."
         )
-        raise EnvironmentError(
-            "Environment variable RUN_SYNC_TO_YNAB or RUN_SYNC_TO_AB must be True."
-        )
+        logging.error(msg)
+        raise EnvironmentError(msg)
 
     required_envs = ["AKAHU_USER_TOKEN", "AKAHU_APP_TOKEN"]
     if run_sync_to_ab:
@@ -140,6 +153,8 @@ def load_config(overrides=None, options_file=None):
         ]
     if run_sync_to_ynab:
         required_envs += ["YNAB_BEARER_TOKEN"]
+    if run_sync_to_sure:
+        required_envs += ["SURE_API_TOKEN"]
 
     envs = {key: _optional_str(values.get(key)) for key in required_envs}
     optional_env_keys = [
@@ -147,6 +162,10 @@ def load_config(overrides=None, options_file=None):
         "OPENAI_API_KEY",
         "OPENAI_BASE_URL",
         "OPENAI_MODEL",
+        "SURE_API_URL",
+        "SURE_CONTAINER_RUNTIME",
+        "SURE_CONTAINER_NAME",
+        "SURE_USE_SIDECAR",
     ]
     optional_envs = {
         key: _optional_str(values.get(key))
@@ -169,13 +188,16 @@ def load_config(overrides=None, options_file=None):
         raise EnvironmentError("SYNC_INTERVAL must be greater than zero")
 
     mapping_file = _optional_str(values.get("MAPPING_FILE", values.get("mapping_file")))
-    log_file = _optional_str(values.get("LOG_FILE", values.get("log_file", DEFAULT_LOG_FILE)))
+    log_file = _optional_str(
+        values.get("LOG_FILE", values.get("log_file", DEFAULT_LOG_FILE))
+    )
     if mapping_file is None:
         mapping_file = DEFAULT_MAPPING_FILE
 
     return AppConfig(
         run_sync_to_ynab=run_sync_to_ynab,
         run_sync_to_ab=run_sync_to_ab,
+        run_sync_to_sure=run_sync_to_sure,
         force_refresh=force_refresh,
         debug_sync=debug_sync,
         mapping_file=mapping_file,
@@ -189,6 +211,7 @@ CONFIG = load_config()
 
 RUN_SYNC_TO_YNAB = CONFIG.run_sync_to_ynab
 RUN_SYNC_TO_AB = CONFIG.run_sync_to_ab
+RUN_SYNC_TO_SURE = CONFIG.run_sync_to_sure
 FORCE_REFRESH = CONFIG.force_refresh
 DEBUG_SYNC = CONFIG.debug_sync
 MAPPING_FILE = CONFIG.mapping_file

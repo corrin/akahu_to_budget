@@ -171,3 +171,6 @@ cython_debug/
 akahu_budget_mapping.json.bak
 *.bak
 actual-budget-data/db.sqlite
+codebase_dump.txt
+bundle_code.sh
+sure_dedupe.py
