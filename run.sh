@@ -33,6 +33,8 @@ export AKAHU_TO_BUDGET_OPTIONS_FILE="$OPTIONS_FILE"
 MAPPING_FILE=$(jq -r '.mapping_file // "/config/akahu_budget_mapping.json"' "$OPTIONS_FILE")
 SYNC_INTERVAL=$(jq -r '.sync_interval // 86400' "$OPTIONS_FILE")
 
+python /app/haos_mapping_bootstrap.py
+
 if [ ! -f "$MAPPING_FILE" ]; then
     echo "ERROR: Mapping file not found: $MAPPING_FILE"
     echo "Create it with akahu_budget_mapping.py outside HAOS, then place it at the configured path."

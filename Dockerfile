@@ -1,6 +1,6 @@
 ARG BUILD_FROM=python:3.12-alpine
 FROM $BUILD_FROM
-ARG BUILD_VERSION=0.1.0
+ARG BUILD_VERSION=0.1.1
 
 LABEL \
     io.hass.version="${BUILD_VERSION}" \
@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY modules ./modules
 COPY sync_cli.py .
 COPY sure_client.py .
+COPY haos_mapping_bootstrap.py .
 
 COPY run.sh /run.sh
 RUN chmod +x /run.sh

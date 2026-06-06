@@ -179,6 +179,9 @@ repo root so it shares the same sync code as the other deployment methods.
 
 ## HAOS setup
 
+This is a Home Assistant OS app/add-on, not a HACS integration. Install it from
+the Home Assistant app store by adding this repository as an app repository.
+
 1. Generate `akahu_budget_mapping.json` before installing the add-on:
 
    ```bash
@@ -188,17 +191,28 @@ repo root so it shares the same sync code as the other deployment methods.
    This is still an interactive setup step and is easier to run on your normal
    computer than inside Home Assistant.
 
-2. In Home Assistant, go to **Settings → Apps**.
-3. Select **Install app** to open the App Store.
-4. Open the top-right store menu, choose **Repositories**, and add this repository:
+2. Add this repository to Home Assistant:
+
+   [Add Akahu to Budget repository to Home Assistant](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fcorrin%2Fakahu_to_budget)
+
+   If the direct link does not work, add it manually:
+
+   1. In Home Assistant, go to **Settings → Apps**.
+   2. Select **App store** or **Install app**.
+   3. Open the top-right `...` menu in the app store.
+   4. Choose **Repositories**.
+   5. Add this repository URL:
 
    ```text
    https://github.com/corrin/akahu_to_budget
    ```
 
-5. Install the **Akahu to Budget** app.
-6. Copy `akahu_budget_mapping.json` into the app config directory and leave
-   the default add-on option as:
+3. Install the **Akahu to Budget** app.
+4. Place `akahu_budget_mapping.json` where the add-on can read it.
+
+   For most people, the clearest option is to copy the file into this add-on's
+   config directory with a Home Assistant file tool such as Studio Code Server
+   or File Editor, then leave the default add-on option as:
 
    ```text
    /config/akahu_budget_mapping.json
@@ -207,7 +221,26 @@ repo root so it shares the same sync code as the other deployment methods.
    If you place the file somewhere else, update the `mapping_file` option to
    match that path.
 
-7. Fill in the app options for the services you use:
+   For automation or MCP-driven setup, you can instead paste a one-time copy
+   into the `mapping_json` option. In the YAML options editor, a block scalar
+   is easiest:
+
+   ```yaml
+   mapping_json: |-
+     {
+       "akahu_accounts": {},
+       "actual_accounts": {},
+       "ynab_accounts": {},
+       "mapping": {}
+     }
+   ```
+
+   On startup, the add-on writes that value to `mapping_file` only if the
+   mapping file is missing. After the first successful start, clear
+   `mapping_json` from the add-on options so the mapping is not stored in
+   Supervisor options longer than necessary.
+
+5. Fill in the app options for the services you use:
 
    - `RUN_SYNC_TO_AB`
    - `RUN_SYNC_TO_YNAB`
@@ -216,7 +249,7 @@ repo root so it shares the same sync code as the other deployment methods.
    - YNAB settings, if enabled
    - Sure Finance settings, if enabled
 
-8. Start the app and check the app log. It should print the options file,
+6. Start the app and check the app log. It should print the options file,
    mapping file, and sync interval before the first sync starts.
 
 ## HAOS options
@@ -231,6 +264,10 @@ the mapping file at:
 The default `sync_interval` is `86400`, which means one sync per day. Set
 `log_file` to an empty string to use Supervisor logs only; that is the default
 for the add-on.
+
+`mapping_json` is optional and intended for automation or copy/paste setup. It
+is the raw contents of `akahu_budget_mapping.json`. The add-on uses it only when
+`mapping_file` does not already exist.
 
 The add-on fails loudly if the mapping file is missing or if required options
 for the enabled sync target are blank.
