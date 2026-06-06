@@ -1,4 +1,4 @@
-"""Tests for sure_client.push_to_sure with HTTP mocked via responses.
+"""Tests for sure_client.push_transactions with HTTP mocked via responses.
 
 This is a starter test covering the three things that are easy to get
 wrong: sign inversion, NZ-local date conversion, and payload shape.
@@ -19,8 +19,10 @@ def _sure_env(monkeypatch):
 
 
 @responses.activate
-def test_push_to_sure_flips_sign_and_converts_date_to_nz_local():
-    from sure_client import push_to_sure, SURE_DEFAULT_URL
+def test_push_transactions_flips_sign_and_converts_date_to_nz_local(monkeypatch):
+    from sure_client import push_transactions, SURE_DEFAULT_URL
+
+    monkeypatch.setattr("sure_client.USE_SIDECAR", False)
 
     responses.add(responses.POST, SURE_DEFAULT_URL, json={"ok": True}, status=200)
 
@@ -34,32 +36,33 @@ def test_push_to_sure_flips_sign_and_converts_date_to_nz_local():
         "merchant_name": "Test Cafe",
     }
 
-    push_to_sure(transaction, sure_account_id="sure-acc-1")
+    push_transactions([transaction], sure_account_id="sure-acc-1")
 
     assert len(responses.calls) == 1
     sent = json.loads(responses.calls[0].request.body)
-    assert sent == {
-        "transaction": {
-            "account_id": "sure-acc-1",
-            "date": "2025-06-16",
-            "amount": 42.50,
-            "name": "Test Cafe",
-            "external_id": "akahu-tx-123",
-        }
+    assert sent["transaction"] == {
+        "account_id": "sure-acc-1",
+        "date": "2025-06-16",
+        "amount": 42.50,
+        "name": "Test Cafe",
+        "notes": "Akahu ID: akahu-tx-123",
+        "external_id": "akahu-tx-123",
     }
     assert responses.calls[0].request.headers["X-Api-Key"] == "sure-test-token"
 
 
 @responses.activate
-def test_push_to_sure_uses_url_override(monkeypatch):
-    from sure_client import push_to_sure
+def test_push_transactions_uses_url_override(monkeypatch):
+    from sure_client import push_transactions
+
+    monkeypatch.setattr("sure_client.USE_SIDECAR", False)
 
     custom_url = "https://sure.example.test/api/v1/transactions"
     monkeypatch.setenv("SURE_API_URL", custom_url)
     responses.add(responses.POST, custom_url, json={"ok": True}, status=200)
 
-    push_to_sure(
-        {"_id": "x", "amount": 1.00, "date": "2025-01-01T00:00:00Z"},
+    push_transactions(
+        [{"_id": "x", "amount": 1.00, "date": "2025-01-01T00:00:00Z"}],
         sure_account_id="sure-acc-1",
     )
 
@@ -67,10 +70,11 @@ def test_push_to_sure_uses_url_override(monkeypatch):
     assert responses.calls[0].request.url == custom_url
 
 
-def test_push_to_sure_raises_when_token_missing(monkeypatch):
-    from sure_client import push_to_sure
+def test_push_transactions_raises_when_token_missing(monkeypatch):
+    from sure_client import push_transactions
 
+    monkeypatch.setattr("sure_client.USE_SIDECAR", False)
     monkeypatch.delenv("SURE_API_TOKEN", raising=False)
 
     with pytest.raises(RuntimeError, match="SURE_API_TOKEN"):
-        push_to_sure({"_id": "x", "amount": 1.0, "date": ""}, "sure-acc-1")
+        push_transactions([{"_id": "x", "amount": 1.0, "date": ""}], "sure-acc-1")

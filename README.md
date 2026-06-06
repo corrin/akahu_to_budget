@@ -105,7 +105,7 @@ pip install -r requirements_web.txt
 
 Run `python akahu_budget_mapping.py`
 
-This lets you interactively map your bank accounts with accounts set up in Actual Budget or YNAB.
+This lets you interactively map your bank accounts with accounts set up in Actual Budget, YNAB, or Sure Finance.
 
 It will ask you a bunch of questions like 
 ```Akahu Account: DAY TO DAY (Connection: Kiwibank)
