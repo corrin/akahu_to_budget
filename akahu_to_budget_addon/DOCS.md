@@ -32,7 +32,8 @@ repo root so this wrapper does not carry a separate copy of the sync code.
      The add-on writes this value to `mapping_file` only if the mapping file is
      missing. Clear `mapping_json` after the first successful start.
 3. Fill in the add-on options for Akahu and the enabled budget target.
-4. Start the add-on and watch the Supervisor log.
+4. Start the add-on and check its log in Home Assistant. It should print the
+   options file, mapping file, and sync interval before the first sync starts.
 
 Set `log_file` to an empty string for Supervisor-only logging. That is the
 default for this add-on.
