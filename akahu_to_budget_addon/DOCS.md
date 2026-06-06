@@ -12,8 +12,19 @@ repo root so this wrapper does not carry a separate copy of the sync code.
 
 1. Generate `akahu_budget_mapping.json` outside Home Assistant with the normal
    `python akahu_budget_mapping.py` workflow.
-2. Copy that file into this add-on's config directory, or set `mapping_file` to
-   the path where you placed it.
+2. Place that file where the add-on can read it.
+   - For normal UI setup, copy it into this add-on's config directory with
+     Studio Code Server, File Editor, or another Home Assistant file tool, then
+     leave `mapping_file` as `/config/akahu_budget_mapping.json`.
+   - For automation or MCP-driven setup, paste a one-time compressed copy into
+     `mapping_json_gzip_base64`:
+
+     ```bash
+     gzip -c akahu_budget_mapping.json | base64 -w0
+     ```
+
+     The add-on writes this value to `mapping_file` only if the mapping file is
+     missing. Clear `mapping_json_gzip_base64` after the first successful start.
 3. Fill in the add-on options for Akahu and the enabled budget target.
 4. Start the add-on and watch the Supervisor log.
 

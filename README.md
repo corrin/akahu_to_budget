@@ -208,8 +208,11 @@ the Home Assistant app store by adding this repository as an app repository.
    ```
 
 3. Install the **Akahu to Budget** app.
-4. Copy `akahu_budget_mapping.json` into the app config directory and leave
-   the default add-on option as:
+4. Place `akahu_budget_mapping.json` where the add-on can read it.
+
+   For most people, the clearest option is to copy the file into this add-on's
+   config directory with a Home Assistant file tool such as Studio Code Server
+   or File Editor, then leave the default add-on option as:
 
    ```text
    /config/akahu_budget_mapping.json
@@ -217,6 +220,18 @@ the Home Assistant app store by adding this repository as an app repository.
 
    If you place the file somewhere else, update the `mapping_file` option to
    match that path.
+
+   For automation or MCP-driven setup, you can instead paste a compressed
+   one-time copy into the `mapping_json_gzip_base64` option:
+
+   ```bash
+   gzip -c akahu_budget_mapping.json | base64 -w0
+   ```
+
+   On startup, the add-on writes that value to `mapping_file` only if the
+   mapping file is missing. After the first successful start, clear
+   `mapping_json_gzip_base64` from the add-on options so the mapping is not
+   stored in Supervisor options longer than necessary.
 
 5. Fill in the app options for the services you use:
 
@@ -242,6 +257,10 @@ the mapping file at:
 The default `sync_interval` is `86400`, which means one sync per day. Set
 `log_file` to an empty string to use Supervisor logs only; that is the default
 for the add-on.
+
+`mapping_json_gzip_base64` is optional and intended for automation. It is a
+gzip-compressed, base64-encoded copy of `akahu_budget_mapping.json`. The add-on
+uses it only when `mapping_file` does not already exist.
 
 The add-on fails loudly if the mapping file is missing or if required options
 for the enabled sync target are blank.
