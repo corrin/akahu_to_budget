@@ -2,7 +2,7 @@ name: Akahu to Budget
 slug: akahu_to_budget
 description: Personal scheduled Akahu to Actual Budget/YNAB sync.
 url: https://github.com/corrin/akahu_to_budget
-version: "0.1.1"
+version: "0.1.2"
 image: ghcr.io/corrin/akahu_to_budget-haos
 stage: experimental
 startup: application

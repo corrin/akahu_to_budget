@@ -1,6 +1,6 @@
 ARG BUILD_FROM=python:3.12-alpine
 FROM $BUILD_FROM
-ARG BUILD_VERSION=0.1.1
+ARG BUILD_VERSION=0.1.2
 
 LABEL \
     io.hass.version="${BUILD_VERSION}" \
