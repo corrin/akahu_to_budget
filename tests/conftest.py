@@ -41,6 +41,10 @@ def clean_env(monkeypatch):
         "MAPPING_FILE",
         "LOG_FILE",
         "SYNC_INTERVAL",
+        "SCHEDULE_TIMEZONE",
+        "REFRESH_TIME",
+        "SYNC_TIME",
+        "SCHEDULER_STATE_FILE",
         "AKAHU_TO_BUDGET_OPTIONS_FILE",
     ]
     for k in keys:

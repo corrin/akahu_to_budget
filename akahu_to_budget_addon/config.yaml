@@ -2,7 +2,7 @@ name: Akahu to Budget
 slug: akahu_to_budget
 description: Personal scheduled Akahu to Actual Budget/YNAB sync.
 url: https://github.com/corrin/akahu_to_budget
-version: "0.1.2"
+version: "0.1.3"
 image: ghcr.io/corrin/akahu_to_budget-haos
 stage: experimental
 startup: application
@@ -37,6 +37,10 @@ options:
   log_file: ""
   # Akahu is synced daily in this personal HAOS deployment.
   sync_interval: 86400
+  schedule_timezone: Pacific/Auckland
+  refresh_time: "04:30"
+  sync_time: "05:30"
+  scheduler_state_file: /config/akahu_to_budget_state.json
 schema:
   RUN_SYNC_TO_YNAB: bool
   RUN_SYNC_TO_AB: bool
@@ -60,3 +64,7 @@ schema:
   mapping_json: password?
   log_file: str
   sync_interval: int(1,)
+  schedule_timezone: str
+  refresh_time: str
+  sync_time: str
+  scheduler_state_file: str

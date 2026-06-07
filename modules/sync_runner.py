@@ -131,12 +131,21 @@ def sync_to_sure(mapping_list):
     return sure_count
 
 
-def run_sync(account_ids=None, debug_mode=None):
+def refresh_akahu():
+    """Request Akahu to refresh connected accounts."""
+    logging.info("Requesting Akahu refresh...")
+    trigger_akahu_refresh()
+
+
+def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
     """Run Akahu sync to enabled budget targets."""
     logging.info("Starting direct sync...")
     actual_count = ynab_count = sure_count = 0
 
-    trigger_akahu_refresh()
+    if skip_akahu_refresh:
+        logging.info("Skipping Akahu refresh before import.")
+    else:
+        refresh_akahu()
 
     _, _, _, mapping_list = load_existing_mapping(MAPPING_FILE)
 

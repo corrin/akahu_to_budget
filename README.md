@@ -125,6 +125,12 @@ Run the script using:
 # For one-time sync (recommended for most users):
 python sync_cli.py
 
+# Request Akahu refresh only:
+python sync_cli.py --refresh-only
+
+# Import without requesting another Akahu refresh:
+python sync_cli.py --skip-akahu-refresh
+
 # For running the webhook server:
 python flask_app.py
 ```
@@ -169,10 +175,10 @@ podman build -t akahu_to_budget:local -f Containerfile .
 
 This repo also includes a Home Assistant OS add-on wrapper in
 `akahu_to_budget_addon/`. It is intended for my personal HAOS setup: the add-on
-stays running and performs a scheduled daily sync by default because Akahu is
-synced daily. That automatic recurring sync is not necessarily the
-right behavior for everyone; the normal Python, Docker/Podman, cron, systemd,
-and Flask deployment paths remain supported.
+stays running, asks Akahu to refresh once per day, then imports into the enabled
+budget target later the same morning. That automatic recurring sync is not
+necessarily the right behavior for everyone; the normal Python, Docker/Podman,
+cron, systemd, and Flask deployment paths remain supported.
 
 The add-on uses the `ghcr.io/corrin/akahu_to_budget-haos` image, built from the
 repo root so it shares the same sync code as the other deployment methods.
@@ -250,7 +256,7 @@ the Home Assistant app store by adding this repository as an app repository.
    - Sure Finance settings, if enabled
 
 6. Start the app and check the app log. It should print the options file,
-   mapping file, and sync interval before the first sync starts.
+   mapping file, refresh time, and sync time before the scheduler starts.
 
 ## HAOS options
 
@@ -261,9 +267,23 @@ the mapping file at:
 /config/akahu_budget_mapping.json
 ```
 
-The default `sync_interval` is `86400`, which means one sync per day. Set
-`log_file` to an empty string to use Supervisor logs only; that is the default
-for the add-on.
+The HAOS scheduler defaults to:
+
+```yaml
+schedule_timezone: Pacific/Auckland
+refresh_time: "04:30"
+sync_time: "05:30"
+scheduler_state_file: /config/akahu_to_budget_state.json
+```
+
+At `refresh_time`, the add-on requests an Akahu refresh. At `sync_time`, it
+imports into the enabled budget target without requesting another refresh. The
+state file prevents a Home Assistant restart from causing a second sync on the
+same local day. `sync_interval` remains accepted for older option files, but the
+HAOS add-on schedule is controlled by `refresh_time` and `sync_time`.
+
+Set `log_file` to an empty string to use Supervisor logs only; that is the
+default for the add-on.
 
 `mapping_json` is optional and intended for automation or copy/paste setup. It
 is the raw contents of `akahu_budget_mapping.json`. The add-on uses it only when

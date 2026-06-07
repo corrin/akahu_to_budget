@@ -33,7 +33,21 @@ repo root so this wrapper does not carry a separate copy of the sync code.
      missing. Clear `mapping_json` after the first successful start.
 3. Fill in the add-on options for Akahu and the enabled budget target.
 4. Start the add-on and check its log in Home Assistant. It should print the
-   options file, mapping file, and sync interval before the first sync starts.
+   options file, mapping file, refresh time, and sync time before the scheduler
+   starts.
+
+## Schedule
+
+The add-on asks Akahu to refresh connected accounts once per local day, then
+imports into the enabled budget target later the same morning:
+
+- `refresh_time`: defaults to `04:30`
+- `sync_time`: defaults to `05:30`
+- `schedule_timezone`: defaults to `Pacific/Auckland`
+
+The scheduler persists its state in `scheduler_state_file`, which defaults to
+`/config/akahu_to_budget_state.json`. If Home Assistant restarts after a sync
+has completed, the add-on will not run the same daily sync again.
 
 Set `log_file` to an empty string for Supervisor-only logging. That is the
 default for this add-on.
