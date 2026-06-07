@@ -31,7 +31,9 @@ fi
 export AKAHU_TO_BUDGET_OPTIONS_FILE="$OPTIONS_FILE"
 
 MAPPING_FILE=$(jq -r '.mapping_file // "/config/akahu_budget_mapping.json"' "$OPTIONS_FILE")
-SYNC_INTERVAL=$(jq -r '.sync_interval // 86400' "$OPTIONS_FILE")
+REFRESH_TIME=$(jq -r '.refresh_time // "04:30"' "$OPTIONS_FILE")
+SYNC_TIME=$(jq -r '.sync_time // "05:30"' "$OPTIONS_FILE")
+SCHEDULE_TIMEZONE=$(jq -r '.schedule_timezone // "Pacific/Auckland"' "$OPTIONS_FILE")
 
 python /app/haos_mapping_bootstrap.py
 
@@ -44,12 +46,8 @@ fi
 echo "Using Home Assistant options from $OPTIONS_FILE"
 echo "Using mapping file $MAPPING_FILE"
 
-echo "Sync interval: ${SYNC_INTERVAL}s"
-echo "Starting sync loop..."
+echo "Refresh time: ${REFRESH_TIME} ${SCHEDULE_TIMEZONE}"
+echo "Sync time: ${SYNC_TIME} ${SCHEDULE_TIMEZONE}"
+echo "Starting scheduler..."
 
-while true; do
-    echo "=== Sync started at $(date -u) ==="
-    run_interruptible python /app/sync_cli.py || echo "Sync failed; retrying in ${SYNC_INTERVAL}s"
-    echo "=== Sync finished; sleeping ${SYNC_INTERVAL}s ==="
-    run_interruptible sleep "$SYNC_INTERVAL"
-done
+run_interruptible python /app/haos_scheduler.py

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3
+
+- Request Akahu refresh at the configured daily refresh time, then import into
+  the enabled budget target at the configured sync time.
+- Persist scheduler state in the add-on config directory so restarts do not
+  trigger duplicate same-day syncs.
+- Add CLI flags for refresh-only and import-without-refresh runs.
+
 ## 0.1.2
 
 - Add Home Assistant add-on changelog metadata so the app store can display

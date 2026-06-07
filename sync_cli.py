@@ -52,17 +52,38 @@ def main():
             "Use an empty string to log to stdout only."
         ),
     )
+    parser.add_argument(
+        "--refresh-only",
+        action="store_true",
+        help="Trigger an Akahu refresh request and exit without importing transactions.",
+    )
+    parser.add_argument(
+        "--skip-akahu-refresh",
+        action="store_true",
+        help="Import transactions without first triggering an Akahu refresh.",
+    )
     args = parser.parse_args()
+
+    if args.refresh_only and args.skip_akahu_refresh:
+        parser.error("--refresh-only cannot be used with --skip-akahu-refresh")
 
     set_env_override("MAPPING_FILE", args.mapping_file)
     set_env_override("LOG_FILE", args.log_file)
 
-    from modules.sync_runner import configure_logging, run_sync
+    from modules.sync_runner import configure_logging, refresh_akahu, run_sync
 
     configure_logging()
 
+    if args.refresh_only:
+        refresh_akahu()
+        return
+
     account_ids = args.accounts.split(",") if args.accounts else None
-    run_sync(account_ids, debug_mode=args.debug)
+    run_sync(
+        account_ids,
+        debug_mode=args.debug,
+        skip_akahu_refresh=args.skip_akahu_refresh,
+    )
 
 
 if __name__ == "__main__":

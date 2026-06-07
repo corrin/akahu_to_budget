@@ -19,6 +19,10 @@ DEFAULT_HA_OPTIONS_FILE = "/data/options.json"
 DEFAULT_MAPPING_FILE = "akahu_budget_mapping.json"
 DEFAULT_LOG_FILE = "app.log"
 DEFAULT_SYNC_INTERVAL = 86400
+DEFAULT_SCHEDULE_TIMEZONE = "Pacific/Auckland"
+DEFAULT_REFRESH_TIME = "04:30"
+DEFAULT_SYNC_TIME = "05:30"
+DEFAULT_SCHEDULER_STATE_FILE = "/config/akahu_to_budget_state.json"
 
 
 @dataclass(frozen=True)
@@ -31,6 +35,10 @@ class AppConfig:
     mapping_file: str
     log_file: str | None
     sync_interval: int
+    schedule_timezone: str
+    refresh_time: str
+    sync_time: str
+    scheduler_state_file: str
     envs: dict[str, str]
     akahu_endpoint: str = "https://api.akahu.io/v1"
     ynab_endpoint: str = "https://api.ynab.com/v1/"
@@ -69,6 +77,21 @@ def _optional_str(value):
     if value == "":
         return None
     return value
+
+
+def _validate_hhmm(value, key):
+    value = str(value).strip()
+    parts = value.split(":")
+    if len(parts) != 2:
+        raise EnvironmentError(f"{key} must use HH:MM format")
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1])
+    except ValueError as e:
+        raise EnvironmentError(f"{key} must use HH:MM format") from e
+    if not 0 <= hour <= 23 or not 0 <= minute <= 59:
+        raise EnvironmentError(f"{key} must use HH:MM format")
+    return f"{hour:02d}:{minute:02d}"
 
 
 def _read_options_file(options_file, *, required):
@@ -187,6 +210,30 @@ def load_config(overrides=None, options_file=None):
     if sync_interval <= 0:
         raise EnvironmentError("SYNC_INTERVAL must be greater than zero")
 
+    schedule_timezone = _optional_str(
+        values.get("SCHEDULE_TIMEZONE", values.get("schedule_timezone"))
+    )
+    if schedule_timezone is None:
+        schedule_timezone = DEFAULT_SCHEDULE_TIMEZONE
+
+    refresh_time = _validate_hhmm(
+        values.get("REFRESH_TIME", values.get("refresh_time", DEFAULT_REFRESH_TIME)),
+        "REFRESH_TIME",
+    )
+    sync_time = _validate_hhmm(
+        values.get("SYNC_TIME", values.get("sync_time", DEFAULT_SYNC_TIME)),
+        "SYNC_TIME",
+    )
+
+    scheduler_state_file = _optional_str(
+        values.get(
+            "SCHEDULER_STATE_FILE",
+            values.get("scheduler_state_file", DEFAULT_SCHEDULER_STATE_FILE),
+        )
+    )
+    if scheduler_state_file is None:
+        scheduler_state_file = DEFAULT_SCHEDULER_STATE_FILE
+
     mapping_file = _optional_str(values.get("MAPPING_FILE", values.get("mapping_file")))
     log_file = _optional_str(
         values.get("LOG_FILE", values.get("log_file", DEFAULT_LOG_FILE))
@@ -203,6 +250,10 @@ def load_config(overrides=None, options_file=None):
         mapping_file=mapping_file,
         log_file=log_file,
         sync_interval=sync_interval,
+        schedule_timezone=schedule_timezone,
+        refresh_time=refresh_time,
+        sync_time=sync_time,
+        scheduler_state_file=scheduler_state_file,
         envs=envs,
     )
 
@@ -217,6 +268,10 @@ DEBUG_SYNC = CONFIG.debug_sync
 MAPPING_FILE = CONFIG.mapping_file
 LOG_FILE = CONFIG.log_file
 SYNC_INTERVAL = CONFIG.sync_interval
+SCHEDULE_TIMEZONE = CONFIG.schedule_timezone
+REFRESH_TIME = CONFIG.refresh_time
+SYNC_TIME = CONFIG.sync_time
+SCHEDULER_STATE_FILE = CONFIG.scheduler_state_file
 ENVs = CONFIG.envs
 
 AKAHU_ENDPOINT = CONFIG.akahu_endpoint

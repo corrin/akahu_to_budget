@@ -119,18 +119,30 @@ def test_mapping_log_paths_and_daily_sync_default_for_existing_deployments(
     assert cfg.MAPPING_FILE == "akahu_budget_mapping.json"
     assert cfg.LOG_FILE == "app.log"
     assert cfg.SYNC_INTERVAL == 86400
+    assert cfg.SCHEDULE_TIMEZONE == "Pacific/Auckland"
+    assert cfg.REFRESH_TIME == "04:30"
+    assert cfg.SYNC_TIME == "05:30"
+    assert cfg.SCHEDULER_STATE_FILE == "/config/akahu_to_budget_state.json"
 
 
 def test_env_can_override_mapping_log_and_interval(full_env, reload_config):
     full_env.setenv("MAPPING_FILE", "/tmp/custom-mapping.json")
     full_env.setenv("LOG_FILE", "")
     full_env.setenv("SYNC_INTERVAL", "300")
+    full_env.setenv("SCHEDULE_TIMEZONE", "UTC")
+    full_env.setenv("REFRESH_TIME", "03:05")
+    full_env.setenv("SYNC_TIME", "04:15")
+    full_env.setenv("SCHEDULER_STATE_FILE", "/tmp/state.json")
 
     cfg = reload_config()
 
     assert cfg.MAPPING_FILE == "/tmp/custom-mapping.json"
     assert cfg.LOG_FILE is None
     assert cfg.SYNC_INTERVAL == 300
+    assert cfg.SCHEDULE_TIMEZONE == "UTC"
+    assert cfg.REFRESH_TIME == "03:05"
+    assert cfg.SYNC_TIME == "04:15"
+    assert cfg.SCHEDULER_STATE_FILE == "/tmp/state.json"
 
 
 def test_home_assistant_options_override_env(clean_env, reload_config, tmp_path):
@@ -150,6 +162,10 @@ def test_home_assistant_options_override_env(clean_env, reload_config, tmp_path)
                 "mapping_file": "/data/akahu_budget_mapping.json",
                 "log_file": "",
                 "sync_interval": 600,
+                "schedule_timezone": "UTC",
+                "refresh_time": "04:30",
+                "sync_time": "05:30",
+                "scheduler_state_file": "/data/scheduler-state.json",
             }
         ),
         encoding="utf-8",
@@ -167,6 +183,17 @@ def test_home_assistant_options_override_env(clean_env, reload_config, tmp_path)
     assert cfg.MAPPING_FILE == "/data/akahu_budget_mapping.json"
     assert cfg.LOG_FILE is None
     assert cfg.SYNC_INTERVAL == 600
+    assert cfg.SCHEDULE_TIMEZONE == "UTC"
+    assert cfg.REFRESH_TIME == "04:30"
+    assert cfg.SYNC_TIME == "05:30"
+    assert cfg.SCHEDULER_STATE_FILE == "/data/scheduler-state.json"
+
+
+def test_invalid_scheduler_time_fails_loud(full_env, reload_config):
+    full_env.setenv("REFRESH_TIME", "25:00")
+
+    with pytest.raises(EnvironmentError, match="REFRESH_TIME"):
+        reload_config()
 
 
 def test_invalid_home_assistant_options_json_fails_loud(clean_env, reload_config, tmp_path):
