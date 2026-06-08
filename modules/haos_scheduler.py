@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, date, time, timedelta
 import json
 import logging
+import math
 from pathlib import Path
 import time as time_module
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -95,7 +96,7 @@ def write_state(path, state):
 
 
 def seconds_until(target, now):
-    return max(0, int((target - now).total_seconds()))
+    return max(0, math.ceil((target - now).total_seconds()))
 
 
 def local_day(now):
