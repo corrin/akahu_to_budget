@@ -69,6 +69,37 @@ def test_restart_after_refresh_waits_for_sync_time(settings):
     assert "sync" in decision.reason
 
 
+def test_subsecond_wait_before_sync_does_not_spin(settings):
+    from modules.haos_scheduler import (
+        LAST_REFRESH_AT,
+        LAST_REFRESH_DATE,
+        decide_next_action,
+    )
+
+    state = {
+        LAST_REFRESH_DATE: "2026-06-07",
+        LAST_REFRESH_AT: local_dt(4, 30).isoformat(),
+    }
+
+    decision = decide_next_action(
+        datetime(
+            2026,
+            6,
+            7,
+            5,
+            29,
+            59,
+            900000,
+            tzinfo=ZoneInfo("Pacific/Auckland"),
+        ),
+        state,
+        settings,
+    )
+
+    assert decision.action == "sleep"
+    assert decision.delay_seconds == 1
+
+
 def test_sync_is_due_after_refresh_gap(settings):
     from modules.haos_scheduler import (
         LAST_REFRESH_AT,
