@@ -83,6 +83,96 @@ def test_error_distinguishes_empty_string_from_garbage(mocker):
     assert str(exc_empty.value) != str(exc_abc.value)
 
 
+def test_actual_import_prefers_merchant_name_for_payee(mocker):
+    from modules import transaction_handler
+
+    mocker.patch.object(
+        transaction_handler, "get_cached_names", return_value=({}, {})
+    )
+    mocker.patch.object(transaction_handler, "get_ruleset", return_value=None)
+
+    fake_txn = mocker.MagicMock()
+    fake_txn.changed.side_effect = [True, True]
+    reconcile = mocker.patch.object(
+        transaction_handler, "reconcile_transaction", return_value=fake_txn
+    )
+
+    fake_actual = mocker.MagicMock()
+    fake_actual.session = mocker.MagicMock()
+    df = pd.DataFrame(
+        [
+            {
+                "_id": "trans_merchant",
+                "amount": -7.5,
+                "date": "2025-05-26T04:00:00Z",
+                "description": "EFTPOS PURCHASE 1234",
+                "merchant": {"name": "Coffee Supreme"},
+                "type": "debit",
+                "category": {"name": "Food and Drink"},
+            }
+        ]
+    )
+
+    transaction_handler.load_transactions_into_actual(
+        df, {"actual_account_id": "actual-acc-1"}, fake_actual
+    )
+
+    assert reconcile.call_args.kwargs["payee"] == "Coffee Supreme"
+    assert reconcile.call_args.kwargs["imported_payee"] == "Coffee Supreme"
+
+
+def test_actual_import_falls_back_to_description_and_formats_notes(mocker):
+    from modules import transaction_handler
+
+    mocker.patch.object(
+        transaction_handler, "get_cached_names", return_value=({}, {})
+    )
+    mocker.patch.object(transaction_handler, "get_ruleset", return_value=None)
+
+    fake_txn = mocker.MagicMock()
+    fake_txn.changed.side_effect = [True, True]
+    reconcile = mocker.patch.object(
+        transaction_handler, "reconcile_transaction", return_value=fake_txn
+    )
+
+    fake_actual = mocker.MagicMock()
+    fake_actual.session = mocker.MagicMock()
+    df = pd.DataFrame(
+        [
+            {
+                "_id": "trans_description",
+                "amount": -12.0,
+                "date": "2025-05-26T04:00:00Z",
+                "description": "Countdown Auckland",
+                "merchant": None,
+                "type": "debit",
+                "category": {"name": "Groceries"},
+            }
+        ]
+    )
+
+    transaction_handler.load_transactions_into_actual(
+        df, {"actual_account_id": "actual-acc-1"}, fake_actual
+    )
+
+    assert reconcile.call_args.kwargs["payee"] == "Countdown Auckland"
+    assert reconcile.call_args.kwargs["notes"] == (
+        "debit | Groceries | Countdown Auckland"
+    )
+
+
+def test_actual_notes_omit_missing_context_without_empty_separators():
+    from modules.transaction_handler import format_transaction_notes
+
+    assert format_transaction_notes(
+        {
+            "type": "",
+            "category": {},
+            "description": "ATM Withdrawal",
+        }
+    ) == "ATM Withdrawal"
+
+
 # --- ruleset-driven transfer payees should materialise the mirror transaction ---
 
 
