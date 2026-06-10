@@ -216,8 +216,8 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
 
     for _, txn in transactions.iterrows():
         transaction_date = txn.get("date")
-        payee_name = txn.get("description")
-        notes = txn.get("description")
+        payee_name = get_payee_name(txn)
+        notes = format_transaction_notes(txn)
         imported_id = txn.get("_id")
         raw_amount = txn.get("amount")
         try:
@@ -515,6 +515,27 @@ def get_payee_name(row):
         logging.error(f"Error extracting payee name from row: {e}, row: {row}")
         res = "Unknown"
     return res
+
+
+def format_transaction_notes(row):
+    """Build Actual notes from useful Akahu context without empty separators."""
+    parts = []
+
+    transaction_type = row.get("type")
+    if transaction_type:
+        parts.append(str(transaction_type))
+
+    category = row.get("category")
+    if isinstance(category, dict):
+        category_name = category.get("name")
+        if category_name:
+            parts.append(str(category_name))
+
+    description = row.get("description")
+    if description:
+        parts.append(str(description))
+
+    return " | ".join(parts)
 
 
 def convert_to_nzt(date_str):

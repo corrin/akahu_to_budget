@@ -59,6 +59,13 @@ def get_actual_client():
                 encryption_password=ENVs["ACTUAL_ENCRYPTION_KEY"],
             ) as client:
                 logging.info(f"Connected to AB: {client}")
+                info = client.info()
+                build = getattr(info, "build", None)
+                server_name = getattr(build, "name", "Actual Budget")
+                server_version = getattr(build, "version", None) or "unknown"
+                logging.info(
+                    f"Actual server info: {server_name} version {server_version}"
+                )
                 yield client
         except (httpx.HTTPError, requests.exceptions.RequestException) as e:
             logging.error(f"Failed to connect to Actual server: {str(e)}")
