@@ -3,6 +3,14 @@ One-way sync of transactions from Akahu to YNAB, Actual Budget, or Sure Finance.
 
 We support Actual Budget, YNAB, and Sure Finance. You can sync to all of them, or just pick the ones you use.
 
+> **Note for Actual Budget users:** This project started as Akahu-to-Actual
+> Budget sync, and Actual Budget now has upstream Akahu bank sync support. If
+> you only want Akahu transactions in Actual Budget, start with the official
+> Actual documentation first:
+> <https://actualbudget.org/docs/advanced/bank-sync/akahu/>. This project may
+> still be useful if you prefer this script's workflow, want the Home Assistant
+> add-on, or use one of the additional budget targets it happens to support.
+
 # Project status
 
 I started writing this script some time ago. As of 2024-12-28... I've finally swapped from using my old hodgepodge version to using this.

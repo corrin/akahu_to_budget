@@ -1,5 +1,11 @@
 # Akahu to Budget add-on
 
+> **Note for Actual Budget users:** Actual Budget now has upstream Akahu bank
+> sync support. If you only need Akahu-to-Actual sync, check the official docs
+> first: <https://actualbudget.org/docs/advanced/bank-sync/akahu/>. This add-on
+> remains useful when you want Home Assistant to run this project's scheduled
+> workflow.
+
 This add-on is a personal Home Assistant OS wrapper around the existing
 `akahu_to_budget` sync code. It is intentionally scheduled daily by default
 because Akahu is synced daily in Corrin's setup. Other deployments should keep
