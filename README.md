@@ -3,13 +3,13 @@ One-way sync of transactions from Akahu to YNAB, Actual Budget, or Sure Finance.
 
 We support Actual Budget, YNAB, and Sure Finance. You can sync to all of them, or just pick the ones you use.
 
-> **Note for Actual Budget users:** This project started as Akahu-to-Actual
-> Budget sync, and Actual Budget now has upstream Akahu bank sync support. If
-> you only want Akahu transactions in Actual Budget, start with the official
-> Actual documentation first:
-> <https://actualbudget.org/docs/advanced/bank-sync/akahu/>. This project may
-> still be useful if you prefer this script's workflow, want the Home Assistant
-> add-on, or use one of the additional budget targets it happens to support.
+> **Note for Actual Budget users:** Actual Budget now has upstream Akahu bank
+> sync support: <https://actualbudget.org/docs/advanced/bank-sync/akahu/>.
+> Actual only syncs while the app is open, though. If you want an unattended
+> daily sync, link your accounts in Actual's Bank Sync page and set
+> `ACTUAL_ACCOUNT_LINKS=actual`; this project then imports on a schedule using
+> Actual's links instead of its own mapping file. See
+> [Let Actual manage account links](#let-actual-manage-account-links).
 
 # Project status
 
@@ -58,6 +58,27 @@ I prefer to both have a password for my Actual Budget server AND to encrypt my d
 Now open your budget in YNAB and click 'show advanced settings'
 
 ![Actual Setup](documentation/actual_budget_settings.png)
+
+### Let Actual manage account links
+
+By default the Akahu-to-Actual account links live in `akahu_budget_mapping.json`
+and are edited with `python akahu_budget_mapping.py`. Set
+`ACTUAL_ACCOUNT_LINKS=actual` to use Actual's Bank Sync page as the editor
+instead:
+
+- Link each Actual account to its Akahu account in Actual (More → Bank Sync).
+- Each sync regenerates the Actual half of `akahu_budget_mapping.json` from those
+  links, then imports exactly as before. YNAB and Sure links in the file are
+  untouched, and the file is created if it does not exist.
+- Off-budget Actual accounts are treated as `Tracking` (their balance is matched
+  to Akahu); on-budget accounts get transactions imported.
+- Unlinking an account in Actual stops it syncing to Actual. A link pointing at
+  an Akahu account that no longer exists (for example after reconnecting a bank
+  in Akahu) fails the sync loudly; relink it in Actual.
+- Clicking "Sync now" in Actual is harmless but unnecessary: imports are matched
+  by Akahu transaction ID.
+
+The webhook server only supports `ACTUAL_ACCOUNT_LINKS=mapping_file`.
 
 ## YNAB
 
@@ -298,7 +319,18 @@ is the raw contents of `akahu_budget_mapping.json`. The add-on uses it only when
 `mapping_file` does not already exist.
 
 The add-on fails loudly if the mapping file is missing or if required options
-for the enabled sync target are blank.
+for the enabled sync target are blank. With `ACTUAL_ACCOUNT_LINKS: actual` and
+no YNAB or Sure target, the mapping file is generated from Actual's links, so no
+hand-made file is needed.
+
+### Alerts when sync stops succeeding
+
+If no scheduled sync has succeeded for `alert_after_hours` (default `36`), the
+add-on raises a Home Assistant notification, repeated at most daily and
+dismissed by the next successful sync. It includes the last error. Set
+`notify_service` (for example `notify.mobile_app_my_phone`) to also send it to a
+phone. The add-on cannot alert while it is stopped, so enable the add-on's
+watchdog to restart it after a crash.
 
 Sure Finance sidecar mode requires access to the Sure Rails container runtime.
 For a normal Home Assistant OS add-on, prefer `SURE_USE_SIDECAR: false` unless

@@ -37,12 +37,6 @@ SCHEDULE_TIMEZONE=$(jq -r '.schedule_timezone // "Pacific/Auckland"' "$OPTIONS_F
 
 python /app/haos_mapping_bootstrap.py
 
-if [ ! -f "$MAPPING_FILE" ]; then
-    echo "ERROR: Mapping file not found: $MAPPING_FILE"
-    echo "Create it with akahu_budget_mapping.py outside HAOS, then place it at the configured path."
-    exit 1
-fi
-
 echo "Using Home Assistant options from $OPTIONS_FILE"
 echo "Using mapping file $MAPPING_FILE"
 

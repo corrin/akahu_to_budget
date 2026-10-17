@@ -11,12 +11,22 @@ from pathlib import Path
 import time as time_module
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from modules import ha_notify
 from modules.sync_runner import configure_logging, refresh_akahu, run_sync
 
 
 LAST_REFRESH_DATE = "last_refresh_requested_local_date"
 LAST_REFRESH_AT = "last_refresh_requested_at"
 LAST_SYNC_DATE = "last_sync_completed_local_date"
+LAST_SYNC_AT = "last_sync_completed_at"
+LAST_SYNC_ERROR = "last_sync_error"
+LAST_SYNC_FAILED_AT = "last_sync_failed_at"
+LAST_ALERT_AT = "last_alert_at"
+FIRST_STARTED_AT = "scheduler_first_started_at"
+
+MAX_SLEEP_SECONDS = 3600
+REALERT_INTERVAL = timedelta(hours=24)
+ALERT_TITLE = "Akahu to Budget: sync not succeeding"
 
 
 @dataclass(frozen=True)
@@ -27,6 +37,8 @@ class SchedulerSettings:
     state_file: str
     retry_refresh_seconds: int = 900
     retry_sync_seconds: int = 3600
+    alert_after_hours: int = 36
+    notify_service: str | None = None
 
     @property
     def zone(self):
@@ -164,11 +176,52 @@ def mark_refresh_complete(state, now):
     return updated
 
 
-def mark_sync_complete(state, now):
+def mark_sync_complete(state, now, finished_at=None):
     updated = dict(state)
     updated[LAST_SYNC_DATE] = local_day(now)
-    updated["last_sync_completed_at"] = now.isoformat()
+    updated[LAST_SYNC_AT] = (finished_at or now).isoformat()
+    updated.pop(LAST_SYNC_ERROR, None)
+    updated.pop(LAST_SYNC_FAILED_AT, None)
     return updated
+
+
+def mark_sync_failed(state, now, error):
+    updated = dict(state)
+    updated[LAST_SYNC_ERROR] = str(error)
+    updated[LAST_SYNC_FAILED_AT] = now.isoformat()
+    return updated
+
+
+def stale_alert_message(now, state, alert_after_hours):
+    """Return an alert message if no sync has succeeded recently, else None."""
+    last_success = parse_datetime(state.get(LAST_SYNC_AT))
+    reference = last_success or parse_datetime(state.get(FIRST_STARTED_AT))
+    if reference is None:
+        return None
+    age = now - reference
+    if age < timedelta(hours=alert_after_hours):
+        return None
+    last_alert = parse_datetime(state.get(LAST_ALERT_AT))
+    if last_alert is not None and now - last_alert < REALERT_INTERVAL:
+        return None
+
+    hours = int(age.total_seconds() // 3600)
+    if last_success is not None:
+        message = (
+            f"No successful budget sync for {hours} hours "
+            f"(last success {last_success.isoformat(timespec='minutes')})."
+        )
+    else:
+        message = (
+            f"No successful budget sync in the {hours} hours since the add-on started."
+        )
+    if state.get(LAST_SYNC_ERROR):
+        message += (
+            f" Last error at {state.get(LAST_SYNC_FAILED_AT)}: {state[LAST_SYNC_ERROR]}"
+        )
+    else:
+        message += " No failure is recorded; check the add-on log."
+    return message
 
 
 def run_scheduler(
@@ -179,6 +232,7 @@ def run_scheduler(
     refresh_fn=None,
     sync_fn=None,
     stop_requested=None,
+    notifier=None,
 ):
     configure_logging()
     now_fn = now_fn or (lambda: datetime.now(settings.zone))
@@ -186,6 +240,7 @@ def run_scheduler(
     refresh_fn = refresh_fn or refresh_akahu
     sync_fn = sync_fn or (lambda: run_sync(skip_akahu_refresh=True))
     stop_requested = stop_requested or (lambda: False)
+    notifier = notifier or ha_notify
 
     logging.info(
         "Starting HAOS scheduler: refresh %s, sync %s, timezone %s, state %s",
@@ -195,18 +250,31 @@ def run_scheduler(
         settings.state_file,
     )
 
+    state = read_state(settings.state_file)
+    if FIRST_STARTED_AT not in state:
+        write_state(
+            settings.state_file,
+            {**state, FIRST_STARTED_AT: now_fn().astimezone(settings.zone).isoformat()},
+        )
+
     while not stop_requested():
         state = read_state(settings.state_file)
         now = now_fn().astimezone(settings.zone)
+
+        message = stale_alert_message(now, state, settings.alert_after_hours)
+        if message:
+            logging.error(message)
+            if notifier.alert(ALERT_TITLE, message, settings.notify_service):
+                state = {**state, LAST_ALERT_AT: now.isoformat()}
+                write_state(settings.state_file, state)
+
         decision = decide_next_action(now, state, settings)
 
         if decision.action == "sleep":
-            logging.info(
-                "Scheduler sleeping %ss: %s",
-                decision.delay_seconds,
-                decision.reason,
-            )
-            sleeper(decision.delay_seconds)
+            # Wake at least hourly so the staleness check keeps running.
+            delay = min(decision.delay_seconds, MAX_SLEEP_SECONDS)
+            logging.info("Scheduler sleeping %ss: %s", delay, decision.reason)
+            sleeper(delay)
             continue
 
         if decision.action == "refresh":
@@ -229,14 +297,18 @@ def run_scheduler(
             try:
                 sync_fn()
             except Exception as e:
-                logging.warning(
+                logging.error(
                     "Scheduled budget sync failed; retrying in %ss: %s",
                     settings.retry_sync_seconds,
                     e,
                 )
+                write_state(settings.state_file, mark_sync_failed(state, now, e))
                 sleeper(settings.retry_sync_seconds)
                 continue
-            write_state(settings.state_file, mark_sync_complete(state, now))
+            updated = mark_sync_complete(state, now, finished_at=now_fn())
+            if updated.pop(LAST_ALERT_AT, None) is not None:
+                notifier.clear()
+            write_state(settings.state_file, updated)
             continue
 
         raise RuntimeError(f"Unknown scheduler action: {decision.action}")

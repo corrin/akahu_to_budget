@@ -46,6 +46,9 @@ def clean_env(monkeypatch):
         "SYNC_TIME",
         "SCHEDULER_STATE_FILE",
         "AKAHU_TO_BUDGET_OPTIONS_FILE",
+        "ACTUAL_ACCOUNT_LINKS",
+        "ALERT_AFTER_HOURS",
+        "NOTIFY_SERVICE",
     ]
     for k in keys:
         monkeypatch.delenv(k, raising=False)

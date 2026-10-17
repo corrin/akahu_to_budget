@@ -23,6 +23,8 @@ DEFAULT_SCHEDULE_TIMEZONE = "Pacific/Auckland"
 DEFAULT_REFRESH_TIME = "04:30"
 DEFAULT_SYNC_TIME = "05:30"
 DEFAULT_SCHEDULER_STATE_FILE = "/config/akahu_to_budget_state.json"
+DEFAULT_ALERT_AFTER_HOURS = 36
+ACTUAL_ACCOUNT_LINKS_CHOICES = ("mapping_file", "actual")
 
 
 @dataclass(frozen=True)
@@ -39,9 +41,21 @@ class AppConfig:
     refresh_time: str
     sync_time: str
     scheduler_state_file: str
+    actual_account_links: str
+    alert_after_hours: int
+    notify_service: str | None
     envs: dict[str, str]
     akahu_endpoint: str = "https://api.akahu.io/v1"
     ynab_endpoint: str = "https://api.ynab.com/v1/"
+
+    @property
+    def mapping_file_must_preexist(self):
+        """False when the only mapping consumer regenerates it from Actual."""
+        return (
+            self.run_sync_to_ynab
+            or self.run_sync_to_sure
+            or (self.run_sync_to_ab and self.actual_account_links == "mapping_file")
+        )
 
     @property
     def akahu_headers(self):
@@ -241,6 +255,32 @@ def load_config(overrides=None, options_file=None):
     if mapping_file is None:
         mapping_file = DEFAULT_MAPPING_FILE
 
+    actual_account_links = _optional_str(
+        values.get("ACTUAL_ACCOUNT_LINKS", values.get("actual_account_links"))
+    ) or "mapping_file"
+    if actual_account_links not in ACTUAL_ACCOUNT_LINKS_CHOICES:
+        raise EnvironmentError(
+            f"ACTUAL_ACCOUNT_LINKS must be one of {ACTUAL_ACCOUNT_LINKS_CHOICES}, "
+            f"got {actual_account_links!r}"
+        )
+
+    alert_after_hours = int(
+        values.get(
+            "ALERT_AFTER_HOURS",
+            values.get("alert_after_hours", DEFAULT_ALERT_AFTER_HOURS),
+        )
+    )
+    if alert_after_hours <= 0:
+        raise EnvironmentError("ALERT_AFTER_HOURS must be greater than zero")
+
+    notify_service = _optional_str(
+        values.get("NOTIFY_SERVICE", values.get("notify_service"))
+    )
+    if notify_service is not None and not notify_service.startswith("notify."):
+        raise EnvironmentError(
+            f"NOTIFY_SERVICE must look like notify.<service>, got {notify_service!r}"
+        )
+
     return AppConfig(
         run_sync_to_ynab=run_sync_to_ynab,
         run_sync_to_ab=run_sync_to_ab,
@@ -254,6 +294,9 @@ def load_config(overrides=None, options_file=None):
         refresh_time=refresh_time,
         sync_time=sync_time,
         scheduler_state_file=scheduler_state_file,
+        actual_account_links=actual_account_links,
+        alert_after_hours=alert_after_hours,
+        notify_service=notify_service,
         envs=envs,
     )
 
@@ -272,6 +315,10 @@ SCHEDULE_TIMEZONE = CONFIG.schedule_timezone
 REFRESH_TIME = CONFIG.refresh_time
 SYNC_TIME = CONFIG.sync_time
 SCHEDULER_STATE_FILE = CONFIG.scheduler_state_file
+ACTUAL_ACCOUNT_LINKS = CONFIG.actual_account_links
+MAPPING_FILE_MUST_PREEXIST = CONFIG.mapping_file_must_preexist
+ALERT_AFTER_HOURS = CONFIG.alert_after_hours
+NOTIFY_SERVICE = CONFIG.notify_service
 ENVs = CONFIG.envs
 
 AKAHU_ENDPOINT = CONFIG.akahu_endpoint
