@@ -266,13 +266,48 @@ def test_account_type_follows_offbudget_and_reports_change():
     assert any(level == logging.WARNING and "Tracking" in msg for level, msg in changes)
 
 
-def test_linked_account_missing_from_akahu_fails_loud():
+def test_link_missing_from_akahu_is_skipped_as_error_and_others_sync():
     from modules.account_mapper import apply_actual_links
 
-    with pytest.raises(RuntimeError, match="Relink it"):
-        apply_actual_links(
-            {}, [_linked("act-1", "acc_gone", "Westpac CC")], AKAHU, "sync-id", NOW
-        )
+    mapping = {"acc_gone": _entry("acc_gone", "act-1", "Westpac CC")}
+    updated, changes = apply_actual_links(
+        mapping,
+        [
+            _linked("act-1", "acc_gone", "Westpac CC"),
+            _linked("act-2", "acc_save", "Savings"),
+        ],
+        AKAHU, "sync-id", NOW,
+    )
+
+    errors = [msg for level, msg in changes if level == logging.ERROR]
+    assert len(errors) == 1 and "relink it" in errors[0]
+    assert updated["acc_gone"]["actual_do_not_map"] is True
+    assert updated["acc_save"]["actual_account_id"] == "act-2"
+    assert not any("no longer sync" in msg for _, msg in changes)
+
+
+def test_keep_account_type_when_ynab_owns_it():
+    from modules.account_mapper import apply_actual_links
+
+    mapping = {"acc_save": _entry("acc_save", "act-2", "Savings")}
+    updated, changes = apply_actual_links(
+        mapping, [_linked("act-2", "acc_save", "Savings", offbudget=True)],
+        AKAHU, "sync-id", NOW, keep_account_type=True,
+    )
+
+    assert updated["acc_save"]["account_type"] == "On Budget"
+    assert any("YNAB sync owns" in msg for _, msg in changes)
+
+
+def test_keep_account_type_still_sets_type_for_new_entries():
+    from modules.account_mapper import apply_actual_links
+
+    updated, _ = apply_actual_links(
+        {}, [_linked("act-2", "acc_save", "Savings", offbudget=True)],
+        AKAHU, "sync-id", NOW, keep_account_type=True,
+    )
+
+    assert updated["acc_save"]["account_type"] == "Tracking"
 
 
 def test_two_actual_accounts_on_one_akahu_account_fails_loud():

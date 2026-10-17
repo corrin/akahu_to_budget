@@ -72,11 +72,17 @@ instead:
   untouched, and the file is created if it does not exist.
 - Off-budget Actual accounts are treated as `Tracking` (their balance is matched
   to Akahu); on-budget accounts get transactions imported.
-- Unlinking an account in Actual stops it syncing to Actual. A link pointing at
-  an Akahu account that no longer exists (for example after reconnecting a bank
-  in Akahu) fails the sync loudly; relink it in Actual.
+- Unlinking an account in Actual stops it syncing to Actual.
+- If YNAB sync is also enabled, YNAB keeps owning each account's
+  `Tracking`/`On Budget` type; Actual's off-budget flag only sets it for new
+  entries.
+- A link pointing at an Akahu account that is no longer active is skipped and
+  the run is marked failed, so the other accounts keep syncing while the alert
+  names the broken link.
 - Clicking "Sync now" in Actual is harmless but unnecessary: imports are matched
   by Akahu transaction ID.
+- Switching back to `mapping_file` later does not restore the old file-based
+  Actual links; re-run `python akahu_budget_mapping.py`.
 
 The webhook server only supports `ACTUAL_ACCOUNT_LINKS=mapping_file`.
 

@@ -161,11 +161,14 @@ def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
         MAPPING_FILE, generate_stub=not MAPPING_FILE_MUST_PREEXIST
     )
 
+    link_errors = []
     with get_actual_client() as actual_client:
         if RUN_SYNC_TO_AB and actual_client:
             actual_client.download_budget()
             if ACTUAL_ACCOUNT_LINKS == "actual":
-                mapping_list = refresh_actual_links(actual_client, MAPPING_FILE)
+                mapping_list, link_errors = refresh_actual_links(
+                    actual_client, MAPPING_FILE
+                )
 
         if account_ids:
             mapping_list = {k: v for k, v in mapping_list.items() if k in account_ids}
@@ -189,3 +192,8 @@ def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
     logging.info(
         f"Sync completed. Actual: {actual_count}, YNAB: {ynab_count}, Sure: {sure_count}"
     )
+    if link_errors:
+        raise RuntimeError(
+            "Synced the other accounts, but skipped broken Actual links: "
+            + " ".join(link_errors)
+        )

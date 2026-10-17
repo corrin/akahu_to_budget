@@ -73,3 +73,16 @@ def test_http_error_returns_false(monkeypatch):
     ha_notify, _ = _capture(monkeypatch, status=500)
 
     assert ha_notify.alert("Title", "Body") is False
+
+
+def test_failing_notify_service_still_reports_notification_created(monkeypatch):
+    import modules.ha_notify as ha_notify
+
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "tok")
+
+    def fake_post(url, headers, json, timeout):
+        return _Response(500 if "/notify/" in url else 200)
+
+    monkeypatch.setattr(ha_notify.requests, "post", fake_post)
+
+    assert ha_notify.alert("Title", "Body", "notify.mobile_app_phone") is True

@@ -362,3 +362,29 @@ def write_state_file(settings, state):
     from modules.haos_scheduler import write_state
 
     write_state(settings.state_file, state)
+
+
+def test_failed_refresh_records_error_for_alert(settings):
+    from modules.haos_scheduler import LAST_SYNC_ERROR, run_scheduler, read_state
+
+    def failing_refresh():
+        raise RuntimeError("Akahu 503")
+
+    remaining = [1]
+
+    def stop_requested():
+        remaining[0] -= 1
+        return remaining[0] < 0
+
+    run_scheduler(
+        settings,
+        now_fn=lambda: local_dt(4, 45),
+        sleeper=lambda seconds: None,
+        refresh_fn=failing_refresh,
+        sync_fn=lambda: None,
+        stop_requested=stop_requested,
+        notifier=FakeNotifier(),
+    )
+
+    state = read_state(settings.state_file)
+    assert state[LAST_SYNC_ERROR] == "Akahu refresh failed: Akahu 503"

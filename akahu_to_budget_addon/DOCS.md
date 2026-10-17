@@ -47,8 +47,10 @@ With `ACTUAL_ACCOUNT_LINKS: actual`, link each Actual account to its Akahu
 account in Actual's Bank Sync page. Each sync regenerates the Actual links in
 `mapping_file` from Actual, so no hand-made mapping is needed unless YNAB or Sure
 is also enabled. Off-budget accounts are balance-matched (`Tracking`); on-budget
-accounts get transactions imported. A link to an Akahu account that no longer
-exists fails the sync loudly; relink it in Actual.
+accounts get transactions imported. A link to an Akahu account that is no
+longer active is skipped and reported, and the run counts as failed until you
+relink it in Actual. Switching back to `mapping_file` later needs a fresh
+`akahu_budget_mapping.py` run.
 
 ## Alerts
 

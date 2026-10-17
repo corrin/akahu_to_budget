@@ -530,12 +530,16 @@ NEW_LINK_LOOKBACK_DAYS = 90
 WATERMARK_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
-def apply_actual_links(mapping, linked_accounts, akahu_accounts, budget_id, now):
+def apply_actual_links(
+    mapping, linked_accounts, akahu_accounts, budget_id, now, keep_account_type=False
+):
     """Rebuild the Actual side of the mapping from Actual's Bank Sync links.
 
     Actual is the source of truth: every Actual field is regenerated from
     `linked_accounts`, while Akahu, YNAB and Sure fields are left untouched.
-    Entries Actual does not link are marked actual_do_not_map.
+    Entries Actual does not link are marked actual_do_not_map. A link to an
+    Akahu account that Akahu no longer returns is skipped and reported at ERROR
+    level so the remaining accounts still sync.
 
     Args:
         mapping: Existing mapping dict keyed by Akahu account ID.
@@ -545,19 +549,29 @@ def apply_actual_links(mapping, linked_accounts, akahu_accounts, budget_id, now)
         akahu_accounts: Akahu accounts currently returned by Akahu, keyed by ID.
         budget_id: Value stored as actual_budget_id on each linked entry.
         now: Current UTC datetime.
+        keep_account_type: Keep an entry's existing account_type (YNAB owns it
+            when YNAB sync is enabled); Actual's off-budget flag then only sets
+            the type of entries that have none.
 
     Returns:
         (updated_mapping, changes) where changes is a list of (level, message).
     """
+    changes = []
+    usable_links = []
+    broken_actual_ids = set()
     seen_akahu_ids = {}
     for account in linked_accounts:
         akahu_id = account["akahu_id"]
         if akahu_id not in akahu_accounts:
-            raise RuntimeError(
+            changes.append((
+                logging.ERROR,
                 f"Actual account '{account['name']}' is linked to Akahu account "
-                f"{akahu_id}, which Akahu no longer returns. Relink it in "
-                "Actual's Bank Sync page."
-            )
+                f"{akahu_id}, which Akahu no longer returns as active. Skipping it; "
+                "relink it in Actual's Bank Sync page.",
+            ))
+            broken_actual_ids.add(account["id"])
+            continue
+        usable_links.append(account)
         if akahu_id in seen_akahu_ids:
             raise RuntimeError(
                 f"Actual accounts '{seen_akahu_ids[akahu_id]}' and "
@@ -574,10 +588,9 @@ def apply_actual_links(mapping, linked_accounts, akahu_accounts, budget_id, now)
         for field in ACTUAL_LINK_FIELDS:
             entry.pop(field, None)
 
-    changes = []
     now_text = now.strftime(WATERMARK_FORMAT)
     linked_actual_ids = set()
-    for account in linked_accounts:
+    for account in usable_links:
         akahu_id = account["akahu_id"]
         linked_actual_ids.add(account["id"])
         entry = updated.setdefault(
@@ -586,15 +599,24 @@ def apply_actual_links(mapping, linked_accounts, akahu_accounts, budget_id, now)
         )
         old = previous.get(account["id"])
 
-        account_type = "Tracking" if account["offbudget"] else "On Budget"
+        actual_type = "Tracking" if account["offbudget"] else "On Budget"
         old_type = entry.get("account_type") or (old or {}).get("account_type")
-        if old_type and old_type != account_type:
-            changes.append((
-                logging.WARNING,
-                f"'{account['name']}' account type changed from {old_type} to "
-                f"{account_type} (follows Actual's off-budget setting).",
-            ))
-        entry["account_type"] = account_type
+        if old_type and old_type != actual_type:
+            if keep_account_type:
+                changes.append((
+                    logging.WARNING,
+                    f"'{account['name']}' is {'off' if account['offbudget'] else 'on'}"
+                    f"-budget in Actual but keeps account type {old_type} because "
+                    "YNAB sync owns the account type.",
+                ))
+                actual_type = old_type
+            else:
+                changes.append((
+                    logging.WARNING,
+                    f"'{account['name']}' account type changed from {old_type} to "
+                    f"{actual_type} (follows Actual's off-budget setting).",
+                ))
+        entry["account_type"] = actual_type
 
         if old and old.get("actual_synced_datetime"):
             watermark = old["actual_synced_datetime"]
@@ -631,7 +653,7 @@ def apply_actual_links(mapping, linked_accounts, akahu_accounts, budget_id, now)
         })
 
     for actual_id, old in previous.items():
-        if actual_id not in linked_actual_ids:
+        if actual_id not in linked_actual_ids | broken_actual_ids:
             updated[old["akahu_id"]]["actual_matched_date"] = now_text
             changes.append((
                 logging.WARNING,
@@ -639,7 +661,7 @@ def apply_actual_links(mapping, linked_accounts, akahu_accounts, budget_id, now)
                 "Actual's Bank Sync page; it will no longer sync to Actual.",
             ))
 
-    linked_akahu_ids = {account["akahu_id"] for account in linked_accounts}
+    linked_akahu_ids = {account["akahu_id"] for account in usable_links}
     for akahu_id, entry in updated.items():
         if akahu_id not in linked_akahu_ids:
             entry["actual_do_not_map"] = True
@@ -648,11 +670,15 @@ def apply_actual_links(mapping, linked_accounts, akahu_accounts, budget_id, now)
 
 
 def refresh_actual_links(actual_client, mapping_file):
-    """Regenerate the mapping file's Actual links from Actual and return the mapping."""
+    """Regenerate the mapping file's Actual links from Actual.
+
+    Returns (mapping, errors) where errors lists links that were skipped; the
+    caller should fail the run after syncing the rest.
+    """
     from actual.queries import get_accounts, get_transactions
 
     from modules.account_fetcher import fetch_akahu_accounts
-    from modules.config import ENVs
+    from modules.config import ENVs, RUN_SYNC_TO_YNAB
     from modules.mapping_store import load_existing_mapping, save_mapping
 
     linked_accounts = []
@@ -701,6 +727,7 @@ def refresh_actual_links(actual_client, mapping_file):
         fetch_akahu_accounts(),
         ENVs["ACTUAL_SYNC_ID"],
         datetime.now(timezone.utc),
+        keep_account_type=RUN_SYNC_TO_YNAB,
     )
     for level, message in changes:
         logging.log(level, message)
@@ -715,4 +742,4 @@ def refresh_actual_links(actual_client, mapping_file):
         },
         mapping_file,
     )
-    return mapping
+    return mapping, [message for level, message in changes if level >= logging.ERROR]

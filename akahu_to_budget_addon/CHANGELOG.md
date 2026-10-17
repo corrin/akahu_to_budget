@@ -6,8 +6,9 @@
   Akahu-to-Actual account links. The Actual side of the mapping file is
   regenerated from Actual on every sync; YNAB and Sure links are unchanged, and
   the default (`mapping_file`) keeps the existing behaviour.
-- Fail loudly when an Actual account is linked to an Akahu account that Akahu no
-  longer returns, such as after reconnecting a bank in Akahu.
+- Skip and report an Actual account linked to an Akahu account that Akahu no
+  longer returns as active (such as after reconnecting a bank in Akahu). The
+  remaining accounts still sync, and the run is marked failed.
 - Raise a Home Assistant notification when no scheduled sync has succeeded for
   `alert_after_hours` (default 36), optionally also via `notify_service`.
 - Record the last sync error and the actual sync finish time in the scheduler

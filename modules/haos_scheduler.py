@@ -287,6 +287,10 @@ def run_scheduler(
                     settings.retry_refresh_seconds,
                     e,
                 )
+                write_state(
+                    settings.state_file,
+                    mark_sync_failed(state, now, f"Akahu refresh failed: {e}"),
+                )
                 sleeper(settings.retry_refresh_seconds)
                 continue
             write_state(settings.state_file, mark_refresh_complete(state, now))

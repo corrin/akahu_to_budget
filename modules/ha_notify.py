@@ -35,19 +35,17 @@ def _call_service(service_path, payload):
 def alert(title, message, notify_service=None):
     """Show a persistent HA notification, plus notify_service if configured.
 
-    Returns True only if every notification was delivered.
+    Returns True if the persistent notification was created; a failing
+    notify_service is logged but does not stop the alert being recorded.
     """
-    delivered = _call_service(
+    created = _call_service(
         "persistent_notification/create",
         {"notification_id": NOTIFICATION_ID, "title": title, "message": message},
     )
     if notify_service:
         domain, _, service = notify_service.partition(".")
-        delivered = (
-            _call_service(f"{domain}/{service}", {"title": title, "message": message})
-            and delivered
-        )
-    return delivered
+        _call_service(f"{domain}/{service}", {"title": title, "message": message})
+    return created
 
 
 def clear():
