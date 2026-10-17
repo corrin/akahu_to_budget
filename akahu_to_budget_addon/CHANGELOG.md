@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0
+
+- Add `ACTUAL_ACCOUNT_LINKS: actual` to let Actual's Bank Sync page manage the
+  Akahu-to-Actual account links. The Actual side of the mapping file is
+  regenerated from Actual on every sync; YNAB and Sure links are unchanged, and
+  the default (`mapping_file`) keeps the existing behaviour.
+- Skip and report an Actual account linked to an Akahu account that Akahu no
+  longer returns as active (such as after reconnecting a bank in Akahu). The
+  remaining accounts still sync, and the run is marked failed.
+- Raise a Home Assistant notification when no scheduled sync has succeeded for
+  `alert_after_hours` (default 36), optionally also via `notify_service`.
+- Record the last sync error and the actual sync finish time in the scheduler
+  state file.
+
 ## 0.1.3
 
 - Request Akahu refresh at the configured daily refresh time, then import into

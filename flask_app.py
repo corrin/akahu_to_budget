@@ -5,7 +5,12 @@ import signal
 import sys
 
 from modules.mapping_store import load_existing_mapping
-from modules.config import AKAHU_ENDPOINT, AKAHU_HEADERS, RUN_SYNC_TO_AB
+from modules.config import (
+    ACTUAL_ACCOUNT_LINKS,
+    AKAHU_ENDPOINT,
+    AKAHU_HEADERS,
+    RUN_SYNC_TO_AB,
+)
 from modules.sync_runner import configure_logging, get_actual_client, run_sync
 from modules.webhook_handler import create_flask_app
 import sure_client
@@ -28,6 +33,11 @@ signal.signal(signal.SIGTERM, signal_handler)  # Handle kill
 
 def create_application():
     """Create Flask application."""
+    if RUN_SYNC_TO_AB and ACTUAL_ACCOUNT_LINKS == "actual":
+        raise RuntimeError(
+            "Webhook mode requires ACTUAL_ACCOUNT_LINKS=mapping_file; "
+            "use sync_cli.py or the HAOS scheduler with Actual-managed links."
+        )
     _, _, _, mapping_list = load_existing_mapping()
     
     with get_actual_client() as actual_client:

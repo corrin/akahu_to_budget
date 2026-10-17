@@ -2,7 +2,7 @@ name: Akahu to Budget
 slug: akahu_to_budget
 description: Personal scheduled Akahu to Actual Budget/YNAB sync.
 url: https://github.com/corrin/akahu_to_budget
-version: "0.1.3"
+version: "0.2.0"
 image: ghcr.io/corrin/akahu_to_budget-haos
 stage: experimental
 startup: application
@@ -11,6 +11,7 @@ arch:
   - aarch64
   - amd64
 init: false
+homeassistant_api: true
 map:
   - addon_config:rw
 options:
@@ -23,6 +24,7 @@ options:
   ACTUAL_PASSWORD: ""
   ACTUAL_ENCRYPTION_KEY: ""
   ACTUAL_SYNC_ID: ""
+  ACTUAL_ACCOUNT_LINKS: mapping_file
   YNAB_BEARER_TOKEN: ""
   YNAB_BUDGET_ID: ""
   SURE_API_TOKEN: ""
@@ -41,6 +43,8 @@ options:
   refresh_time: "04:30"
   sync_time: "05:30"
   scheduler_state_file: /config/akahu_to_budget_state.json
+  alert_after_hours: 36
+  notify_service: ""
 schema:
   RUN_SYNC_TO_YNAB: bool
   RUN_SYNC_TO_AB: bool
@@ -51,6 +55,7 @@ schema:
   ACTUAL_PASSWORD: password?
   ACTUAL_ENCRYPTION_KEY: password?
   ACTUAL_SYNC_ID: str?
+  ACTUAL_ACCOUNT_LINKS: list(mapping_file|actual)
   YNAB_BEARER_TOKEN: password?
   YNAB_BUDGET_ID: str?
   SURE_API_TOKEN: password?
@@ -68,3 +73,5 @@ schema:
   refresh_time: str
   sync_time: str
   scheduler_state_file: str
+  alert_after_hours: int(1,)
+  notify_service: str?

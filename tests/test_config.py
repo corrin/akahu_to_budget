@@ -250,3 +250,76 @@ def test_explicit_missing_home_assistant_options_file_fails_loud(
 
     with pytest.raises(EnvironmentError, match="Options file not found"):
         reload_config()
+
+
+def test_actual_account_links_defaults_to_mapping_file(full_env, reload_config):
+    cfg = reload_config()
+
+    assert cfg.ACTUAL_ACCOUNT_LINKS == "mapping_file"
+    assert cfg.MAPPING_FILE_MUST_PREEXIST is True
+    assert cfg.ALERT_AFTER_HOURS == 36
+    assert cfg.NOTIFY_SERVICE is None
+
+
+def test_invalid_actual_account_links_fails_loud(full_env, reload_config):
+    full_env.setenv("ACTUAL_ACCOUNT_LINKS", "both")
+
+    with pytest.raises(EnvironmentError, match="ACTUAL_ACCOUNT_LINKS"):
+        reload_config()
+
+
+@pytest.mark.parametrize(
+    "ynab, sure, links, expected",
+    [
+        ("false", "false", "actual", False),
+        ("true", "false", "actual", True),
+        ("false", "true", "actual", True),
+        ("false", "false", "mapping_file", True),
+    ],
+)
+def test_mapping_file_must_preexist(
+    full_env, reload_config, ynab, sure, links, expected
+):
+    full_env.setenv("RUN_SYNC_TO_YNAB", ynab)
+    full_env.setenv("RUN_SYNC_TO_SURE", sure)
+    full_env.setenv("SURE_API_TOKEN", "sure-token")
+    full_env.setenv("ACTUAL_ACCOUNT_LINKS", links)
+
+    assert reload_config().MAPPING_FILE_MUST_PREEXIST is expected
+
+
+def test_notify_service_must_be_a_notify_service(full_env, reload_config):
+    full_env.setenv("NOTIFY_SERVICE", "light.turn_on")
+
+    with pytest.raises(EnvironmentError, match="NOTIFY_SERVICE"):
+        reload_config()
+
+
+def test_home_assistant_options_set_link_owner_and_alerts(
+    clean_env, reload_config, tmp_path
+):
+    options_file = tmp_path / "options.json"
+    options_file.write_text(
+        json.dumps(
+            {
+                "RUN_SYNC_TO_YNAB": False,
+                "RUN_SYNC_TO_AB": True,
+                "AKAHU_USER_TOKEN": "u",
+                "AKAHU_APP_TOKEN": "a",
+                "ACTUAL_SERVER_URL": "https://actual.ha.test",
+                "ACTUAL_PASSWORD": "pw",
+                "ACTUAL_ENCRYPTION_KEY": "k",
+                "ACTUAL_SYNC_ID": "s",
+                "ACTUAL_ACCOUNT_LINKS": "actual",
+                "alert_after_hours": 12,
+                "notify_service": "notify.mobile_app_phone",
+            }
+        ),
+        encoding="utf-8",
+    )
+    clean_env.setenv("AKAHU_TO_BUDGET_OPTIONS_FILE", str(options_file))
+    cfg = reload_config()
+
+    assert cfg.ACTUAL_ACCOUNT_LINKS == "actual"
+    assert cfg.ALERT_AFTER_HOURS == 12
+    assert cfg.NOTIFY_SERVICE == "notify.mobile_app_phone"
