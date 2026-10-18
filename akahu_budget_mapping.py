@@ -3,6 +3,7 @@
 
 import logging
 from modules.config import (
+    ACTUAL_ACCOUNT_LINKS,
     ENVs,
     LOG_FILE,
     MAPPING_FILE,
@@ -37,6 +38,9 @@ from modules.account_mapper import (
 from modules.mapping_store import load_existing_mapping, save_mapping, remove_seq
 
 DEBUG = False
+
+# With ACTUAL_ACCOUNT_LINKS=actual, Actual's Bank Sync page owns the Actual links.
+MAP_ACTUAL_HERE = RUN_SYNC_TO_AB and ACTUAL_ACCOUNT_LINKS == "mapping_file"
 
 # Define required environment variables based on sync settings
 logging.info(f"Sync targets - YNAB: {RUN_SYNC_TO_YNAB}, AB: {RUN_SYNC_TO_AB}, SURE: {RUN_SYNC_TO_SURE}")
@@ -82,7 +86,7 @@ def main():
     latest_actual_accounts = {}
     latest_ynab_accounts = {}
 
-    if RUN_SYNC_TO_AB:
+    if MAP_ACTUAL_HERE:
         from actual import Actual
 
         try:
@@ -99,6 +103,11 @@ def main():
         except Exception as e:
             logging.error(f"Failed to initialize Actual Budget API: {e}")
             raise
+    elif RUN_SYNC_TO_AB:
+        logging.info(
+            "Actual account links are managed in Actual's Bank Sync page; "
+            "skipping Actual matching."
+        )
     else:
         logging.info("Not syncing to Actual Budget")
 
@@ -121,6 +130,10 @@ def main():
             mapping['ynab_budget_id'] = ENVs.get('YNAB_BUDGET_ID')
         if 'actual_account_id' in mapping and 'actual_budget_id' not in mapping:
             mapping['actual_budget_id'] = ENVs.get('ACTUAL_SYNC_ID')
+
+    if not MAP_ACTUAL_HERE:
+        # Not fetched, so don't let the merge treat existing Actual accounts as deleted.
+        latest_actual_accounts = existing_actual_accounts
 
     # Step 1: Fetch Akahu accounts
     latest_akahu_accounts = fetch_akahu_accounts()
@@ -168,7 +181,7 @@ def main():
             new_mapping = match_accounts(new_mapping, akahu_accounts, ynab_accounts, "ynab", use_openai=use_openai)
 
         # Step 5: Match Akahu accounts to Actual accounts interactively
-        if RUN_SYNC_TO_AB:
+        if MAP_ACTUAL_HERE:
             new_mapping = match_accounts(new_mapping, akahu_accounts, actual_accounts, "actual", use_openai=use_openai)
 
     # Interactive Mapping Loop for Sure Finance

@@ -1,10 +1,9 @@
 # Akahu to Budget add-on
 
-> **Note for Actual Budget users:** Actual Budget now has upstream Akahu bank
-> sync support. If you only need Akahu-to-Actual sync, check the official docs
-> first: <https://actualbudget.org/docs/advanced/bank-sync/akahu/>. This add-on
-> remains useful when you want Home Assistant to run this project's scheduled
-> workflow.
+> **Note for Actual Budget users:** Actual Budget has upstream Akahu bank sync
+> (<https://actualbudget.org/docs/advanced/bank-sync/akahu/>), but it only runs
+> while Actual is open. To have this add-on sync daily using the links you made
+> in Actual's Bank Sync page, set `ACTUAL_ACCOUNT_LINKS: actual` (see below).
 
 This add-on is a personal Home Assistant OS wrapper around the existing
 `akahu_to_budget` sync code. It is intentionally scheduled daily by default
@@ -41,6 +40,25 @@ repo root so this wrapper does not carry a separate copy of the sync code.
 4. Start the add-on and check its log in Home Assistant. It should print the
    options file, mapping file, refresh time, and sync time before the scheduler
    starts.
+
+## Let Actual manage account links
+
+With `ACTUAL_ACCOUNT_LINKS: actual`, link each Actual account to its Akahu
+account in Actual's Bank Sync page. Each sync regenerates the Actual links in
+`mapping_file` from Actual, so no hand-made mapping is needed unless YNAB or Sure
+is also enabled. Off-budget accounts are balance-matched (`Tracking`); on-budget
+accounts get transactions imported. A link to an Akahu account that is no
+longer active is skipped and reported, and the run counts as failed until you
+relink it in Actual. Switching back to `mapping_file` later needs a fresh
+`akahu_budget_mapping.py` run.
+
+## Alerts
+
+If no scheduled sync has succeeded for `alert_after_hours` (default `36`), the
+add-on raises a Home Assistant notification with the last error, repeated at most
+daily and dismissed by the next successful sync. Set `notify_service` (for
+example `notify.mobile_app_my_phone`) to also send it to a phone. The add-on
+cannot alert while it is stopped, so turn on its watchdog.
 
 ## Schedule
 

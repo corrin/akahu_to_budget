@@ -12,13 +12,16 @@ import requests
 load_dotenv()
 
 from modules.account_fetcher import trigger_akahu_refresh
+from modules.account_mapper import refresh_actual_links
 from modules.mapping_store import load_existing_mapping, save_mapping
 from modules.config import (
     AKAHU_ENDPOINT,
     AKAHU_HEADERS,
+    ACTUAL_ACCOUNT_LINKS,
     ENVs,
     LOG_FILE,
     MAPPING_FILE,
+    MAPPING_FILE_MUST_PREEXIST,
     RUN_SYNC_TO_AB,
     RUN_SYNC_TO_SURE,
     RUN_SYNC_TO_YNAB,
@@ -144,6 +147,14 @@ def refresh_akahu():
     trigger_akahu_refresh()
 
 
+def raise_for_link_errors(link_errors):
+    if link_errors:
+        raise RuntimeError(
+            "Synced the other accounts, but skipped broken Actual links: "
+            + " ".join(link_errors)
+        )
+
+
 def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
     """Run Akahu sync to enabled budget targets."""
     logging.info("Starting direct sync...")
@@ -154,19 +165,28 @@ def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
     else:
         refresh_akahu()
 
-    _, _, _, mapping_list = load_existing_mapping(MAPPING_FILE)
+    _, _, _, mapping_list = load_existing_mapping(
+        MAPPING_FILE, generate_stub=not MAPPING_FILE_MUST_PREEXIST
+    )
 
-    if account_ids:
-        filtered_mapping = {k: v for k, v in mapping_list.items() if k in account_ids}
-        if not filtered_mapping:
-            logging.warning(f"No matching accounts found for IDs: {account_ids}")
-            return
-        logging.info(f"Syncing specific accounts: {', '.join(account_ids)}")
-        mapping_list = filtered_mapping
-
+    link_errors = []
     with get_actual_client() as actual_client:
         if RUN_SYNC_TO_AB and actual_client:
             actual_client.download_budget()
+            if ACTUAL_ACCOUNT_LINKS == "actual":
+                mapping_list, link_errors = refresh_actual_links(
+                    actual_client, MAPPING_FILE
+                )
+
+        if account_ids:
+            mapping_list = {k: v for k, v in mapping_list.items() if k in account_ids}
+            if not mapping_list:
+                logging.warning(f"No matching accounts found for IDs: {account_ids}")
+                raise_for_link_errors(link_errors)
+                return
+            logging.info(f"Syncing specific accounts: {', '.join(account_ids)}")
+
+        if RUN_SYNC_TO_AB and actual_client:
             actual_count = sync_to_ab(actual_client, mapping_list, debug_mode=debug_mode)
             logging.info(f"Synced {actual_count} accounts to Actual Budget.")
 
@@ -181,3 +201,4 @@ def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
     logging.info(
         f"Sync completed. Actual: {actual_count}, YNAB: {ynab_count}, Sure: {sure_count}"
     )
+    raise_for_link_errors(link_errors)
