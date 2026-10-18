@@ -13,6 +13,10 @@
   `alert_after_hours` (default 36), optionally also via `notify_service`.
 - Record the last sync error and the actual sync finish time in the scheduler
   state file.
+- Raise the same notification if the scheduler itself stops with an error,
+  such as a missing mapping file or a corrupt state file.
+- Fix `akahu_budget_mapping.py` crashing when a YNAB account was deleted, and
+  never unlinking deleted Actual accounts.
 
 ## 0.1.3
 
