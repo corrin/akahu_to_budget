@@ -289,7 +289,9 @@ def test_link_missing_from_akahu_is_skipped_as_error_and_others_sync():
 def test_keep_account_type_when_ynab_owns_it():
     from modules.account_mapper import apply_actual_links
 
-    mapping = {"acc_save": _entry("acc_save", "act-2", "Savings")}
+    mapping = {
+        "acc_save": _entry("acc_save", "act-2", "Savings", ynab_account_id="y-2")
+    }
     updated, changes = apply_actual_links(
         mapping, [_linked("act-2", "acc_save", "Savings", offbudget=True)],
         AKAHU, "sync-id", NOW, keep_account_type=True,
@@ -297,6 +299,18 @@ def test_keep_account_type_when_ynab_owns_it():
 
     assert updated["acc_save"]["account_type"] == "On Budget"
     assert any("YNAB sync owns" in msg for _, msg in changes)
+
+
+def test_keep_account_type_ignores_entries_not_linked_to_ynab():
+    from modules.account_mapper import apply_actual_links
+
+    mapping = {"acc_save": _entry("acc_save", "act-2", "Savings")}
+    updated, _ = apply_actual_links(
+        mapping, [_linked("act-2", "acc_save", "Savings", offbudget=True)],
+        AKAHU, "sync-id", NOW, keep_account_type=True,
+    )
+
+    assert updated["acc_save"]["account_type"] == "Tracking"
 
 
 def test_keep_account_type_still_sets_type_for_new_entries():
@@ -381,3 +395,19 @@ def test_merge_removes_links_to_deleted_actual_and_ynab_accounts(monkeypatch):
 
     assert updated["acc_1"] == {"akahu_id": "acc_1", "ynab_account_id": "ynab_keep"}
     assert updated["acc_2"] == {"akahu_id": "acc_2", "actual_account_id": "act_keep"}
+
+
+def test_broken_link_keeps_watermark_until_akahu_returns_it():
+    from modules.account_mapper import apply_actual_links
+
+    mapping = {"acc_gone": _entry("acc_gone", "act-1", "Westpac CC")}
+    links = [_linked("act-1", "acc_gone", "Westpac CC")]
+
+    broken, _ = apply_actual_links(mapping, links, AKAHU, "sync-id", NOW)
+    assert broken["acc_gone"]["actual_do_not_map"] is True
+    assert broken["acc_gone"]["actual_synced_datetime"] == "2026-07-25T17:30:36Z"
+
+    back = {**AKAHU, "acc_gone": {"name": "Card"}}
+    recovered, _ = apply_actual_links(broken, links, back, "sync-id", NOW)
+    assert "actual_do_not_map" not in recovered["acc_gone"]
+    assert recovered["acc_gone"]["actual_synced_datetime"] == "2026-07-25T17:30:36Z"

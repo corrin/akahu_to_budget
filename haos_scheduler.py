@@ -63,13 +63,12 @@ def main():
     from modules.haos_scheduler import SchedulerSettings, run_scheduler
 
     if MAPPING_FILE_MUST_PREEXIST and not Path(MAPPING_FILE).exists():
-        print(f"ERROR: Mapping file not found: {MAPPING_FILE}")
-        print(
-            "Create it with akahu_budget_mapping.py outside HAOS, then place it at "
-            "the configured path, or set ACTUAL_ACCOUNT_LINKS=actual to let Actual "
-            "manage the Actual account links."
+        raise FileNotFoundError(
+            f"Mapping file not found: {MAPPING_FILE}. Create it with "
+            "akahu_budget_mapping.py outside HAOS, then place it at the configured "
+            "path, or set ACTUAL_ACCOUNT_LINKS=actual to let Actual manage the "
+            "Actual account links."
         )
-        return 1
 
     settings = SchedulerSettings(
         schedule_timezone=args.schedule_timezone or SCHEDULE_TIMEZONE,
@@ -93,8 +92,13 @@ if __name__ == "__main__":
         # The scheduler's own stale check can't run once it has crashed.
         from modules import ha_notify
 
+        try:
+            from modules.config import NOTIFY_SERVICE
+        except Exception:
+            NOTIFY_SERVICE = None  # the config itself may be what failed
         ha_notify.alert(
-            "Akahu to Budget: sync not succeeding",
+            ha_notify.ALERT_TITLE,
             f"The scheduler stopped with an error: {e}",
+            NOTIFY_SERVICE,
         )
         raise

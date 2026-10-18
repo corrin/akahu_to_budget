@@ -41,7 +41,7 @@ def test_actual_client_logs_server_info(full_env, reload_config, monkeypatch, ca
 
 
 def _run_sync_with_fakes(
-    monkeypatch, sync_runner, mapping, link_errors=(), calls=None
+    monkeypatch, sync_runner, mapping, link_errors=(), calls=None, account_ids=None
 ):
     from contextlib import contextmanager
 
@@ -67,7 +67,7 @@ def _run_sync_with_fakes(
         sync_runner, "load_existing_mapping", lambda *a, **kw: ({}, {}, {}, mapping)
     )
 
-    sync_runner.run_sync(skip_akahu_refresh=True)
+    sync_runner.run_sync(account_ids, skip_akahu_refresh=True)
     return calls
 
 
@@ -115,3 +115,19 @@ def test_broken_actual_link_fails_run_after_syncing_the_rest(
         )
 
     assert ("sync_to_ab", ["acc_from_actual"]) in calls
+
+
+def test_broken_actual_link_fails_run_when_account_filter_matches_nothing(
+    full_env, reload_config, monkeypatch
+):
+    full_env.setenv("RUN_SYNC_TO_YNAB", "false")
+    full_env.setenv("ACTUAL_ACCOUNT_LINKS", "actual")
+    reload_config()
+    import modules.sync_runner as sync_runner
+
+    sync_runner = importlib.reload(sync_runner)
+    with pytest.raises(RuntimeError, match="Westpac CC is broken"):
+        _run_sync_with_fakes(
+            monkeypatch, sync_runner, {},
+            link_errors=["Westpac CC is broken"], account_ids=["acc_unknown"],
+        )

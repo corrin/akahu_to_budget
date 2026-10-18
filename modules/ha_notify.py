@@ -8,6 +8,7 @@ import requests
 
 SUPERVISOR_SERVICES_URL = "http://supervisor/core/api/services"
 NOTIFICATION_ID = "akahu_to_budget_sync"
+ALERT_TITLE = "Akahu to Budget: sync not succeeding"
 
 
 def _call_service(service_path, payload):

@@ -147,6 +147,14 @@ def refresh_akahu():
     trigger_akahu_refresh()
 
 
+def raise_for_link_errors(link_errors):
+    if link_errors:
+        raise RuntimeError(
+            "Synced the other accounts, but skipped broken Actual links: "
+            + " ".join(link_errors)
+        )
+
+
 def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
     """Run Akahu sync to enabled budget targets."""
     logging.info("Starting direct sync...")
@@ -174,6 +182,7 @@ def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
             mapping_list = {k: v for k, v in mapping_list.items() if k in account_ids}
             if not mapping_list:
                 logging.warning(f"No matching accounts found for IDs: {account_ids}")
+                raise_for_link_errors(link_errors)
                 return
             logging.info(f"Syncing specific accounts: {', '.join(account_ids)}")
 
@@ -192,8 +201,4 @@ def run_sync(account_ids=None, debug_mode=None, *, skip_akahu_refresh=False):
     logging.info(
         f"Sync completed. Actual: {actual_count}, YNAB: {ynab_count}, Sure: {sure_count}"
     )
-    if link_errors:
-        raise RuntimeError(
-            "Synced the other accounts, but skipped broken Actual links: "
-            + " ".join(link_errors)
-        )
+    raise_for_link_errors(link_errors)

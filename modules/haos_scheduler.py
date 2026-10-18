@@ -26,7 +26,6 @@ FIRST_STARTED_AT = "scheduler_first_started_at"
 
 MAX_SLEEP_SECONDS = 3600
 REALERT_INTERVAL = timedelta(hours=24)
-ALERT_TITLE = "Akahu to Budget: sync not succeeding"
 
 
 @dataclass(frozen=True)
@@ -264,7 +263,9 @@ def run_scheduler(
         message = stale_alert_message(now, state, settings.alert_after_hours)
         if message:
             logging.error(message)
-            if notifier.alert(ALERT_TITLE, message, settings.notify_service):
+            if notifier.alert(
+                ha_notify.ALERT_TITLE, message, settings.notify_service
+            ):
                 state = {**state, LAST_ALERT_AT: now.isoformat()}
                 write_state(settings.state_file, state)
 

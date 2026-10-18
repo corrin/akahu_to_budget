@@ -537,9 +537,8 @@ def apply_actual_links(
         akahu_accounts: Akahu accounts currently returned by Akahu, keyed by ID.
         budget_id: Value stored as actual_budget_id on each linked entry.
         now: Current UTC datetime.
-        keep_account_type: Keep an entry's existing account_type (YNAB owns it
-            when YNAB sync is enabled); Actual's off-budget flag then only sets
-            the type of entries that have none.
+        keep_account_type: Keep the existing account_type of entries linked to
+            YNAB (YNAB owns it when YNAB sync is enabled).
 
     Returns:
         (updated_mapping, changes) where changes is a list of (level, message).
@@ -547,6 +546,7 @@ def apply_actual_links(
     changes = []
     usable_links = []
     broken_actual_ids = set()
+    broken_links = set()
     seen_akahu_ids = {}
     for account in linked_accounts:
         akahu_id = account["akahu_id"]
@@ -558,6 +558,7 @@ def apply_actual_links(
                 "relink it in Actual's Bank Sync page.",
             ))
             broken_actual_ids.add(account["id"])
+            broken_links.add((account["id"], akahu_id))
             continue
         usable_links.append(account)
         if akahu_id in seen_akahu_ids:
@@ -573,6 +574,9 @@ def apply_actual_links(
         actual_id = entry.get("actual_account_id")
         if actual_id:
             previous[actual_id] = {"akahu_id": akahu_id, **entry}
+        if (actual_id, akahu_id) in broken_links:
+            # Keep the watermark so syncing resumes once Akahu returns it again.
+            continue
         for field in ACTUAL_LINK_FIELDS:
             entry.pop(field, None)
 
@@ -590,7 +594,7 @@ def apply_actual_links(
         actual_type = "Tracking" if account["offbudget"] else "On Budget"
         old_type = entry.get("account_type") or (old or {}).get("account_type")
         if old_type and old_type != actual_type:
-            if keep_account_type:
+            if keep_account_type and entry.get("ynab_account_id"):
                 changes.append((
                     logging.WARNING,
                     f"'{account['name']}' is {'off' if account['offbudget'] else 'on'}"
@@ -669,6 +673,15 @@ def refresh_actual_links(actual_client, mapping_file):
     from modules.config import ENVs, RUN_SYNC_TO_YNAB
     from modules.mapping_store import load_existing_mapping, save_mapping
 
+    akahu_accounts, actual_accounts, ynab_accounts, mapping = load_existing_mapping(
+        mapping_file, generate_stub=True
+    )
+    watermarked_actual_ids = {
+        entry["actual_account_id"]
+        for entry in mapping.values()
+        if entry.get("actual_account_id") and entry.get("actual_synced_datetime")
+    }
+
     linked_accounts = []
     for account in get_accounts(actual_client.session):
         if account.closed or not account.account_sync_source:
@@ -684,14 +697,16 @@ def refresh_actual_links(actual_client, mapping_file):
                 f"Actual account '{account.name}' is marked as Akahu-linked but has "
                 "no Akahu account ID. Relink it in Actual's Bank Sync page."
             )
-        newest_imported = next(
-            (
-                t.get_date()
-                for t in get_transactions(actual_client.session, account=account)
-                if t.financial_id
-            ),
-            None,
-        )
+        newest_imported = None
+        if account.id not in watermarked_actual_ids:
+            newest_imported = next(
+                (
+                    t.get_date()
+                    for t in get_transactions(actual_client.session, account=account)
+                    if t.financial_id
+                ),
+                None,
+            )
         linked_accounts.append({
             "id": account.id,
             "name": account.name,
@@ -706,9 +721,6 @@ def refresh_actual_links(actual_client, mapping_file):
             "Link them in Actual's Bank Sync page."
         )
 
-    akahu_accounts, actual_accounts, ynab_accounts, mapping = load_existing_mapping(
-        mapping_file, generate_stub=True
-    )
     mapping, changes = apply_actual_links(
         mapping,
         linked_accounts,
