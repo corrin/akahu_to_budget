@@ -718,7 +718,8 @@ def refresh_actual_links(actual_client, mapping_file):
     if not linked_accounts:
         raise RuntimeError(
             "ACTUAL_ACCOUNT_LINKS=actual but no Actual accounts are linked to Akahu. "
-            "Link them in Actual's Bank Sync page."
+            "Link them in Actual's Bank Sync page, or set RUN_SYNC_TO_AB=false to "
+            "stop syncing to Actual."
         )
 
     mapping, changes = apply_actual_links(

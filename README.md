@@ -75,9 +75,9 @@ instead:
 - Off-budget Actual accounts are treated as `Tracking` (their balance is matched
   to Akahu); on-budget accounts get transactions imported.
 - Unlinking an account in Actual stops it syncing to Actual.
-- If YNAB sync is also enabled, YNAB keeps owning each account's
-  `Tracking`/`On Budget` type; Actual's off-budget flag only sets it for new
-  entries.
+- If YNAB sync is also enabled, accounts linked to YNAB keep their existing
+  `Tracking`/`On Budget` type; every other account follows Actual's off-budget
+  flag.
 - A link pointing at an Akahu account that is no longer active is skipped and
   the run is marked failed, so the other accounts keep syncing while the alert
   names the broken link.
