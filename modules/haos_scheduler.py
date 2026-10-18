@@ -310,8 +310,9 @@ def run_scheduler(
                 sleeper(settings.retry_sync_seconds)
                 continue
             updated = mark_sync_complete(state, now, finished_at=now_fn())
-            if updated.pop(LAST_ALERT_AT, None) is not None:
-                notifier.clear()
+            updated.pop(LAST_ALERT_AT, None)
+            # Always dismiss: a crash alert from the entry point leaves no state.
+            notifier.clear()
             write_state(settings.state_file, updated)
             continue
 

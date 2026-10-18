@@ -2,7 +2,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
 import os
-from fuzzywuzzy import process
 
 
 def is_simple_value(value):
@@ -248,6 +247,9 @@ def get_fuzzy_match_suggestion(
     akahu_account, target_accounts, akahu_to_account_mapping, target_account_key
 ):
     """Get account match suggestion using fuzzy matching."""
+    # Setup-only dependency; the sync path imports this module without it.
+    from fuzzywuzzy import process
+
     unmapped_accounts = []
     unmapped_indices = []
     seq_to_account = {}  # Map sequence numbers to accounts

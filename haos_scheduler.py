@@ -87,4 +87,14 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as e:
+        # The scheduler's own stale check can't run once it has crashed.
+        from modules import ha_notify
+
+        ha_notify.alert(
+            "Akahu to Budget: sync not succeeding",
+            f"The scheduler stopped with an error: {e}",
+        )
+        raise
