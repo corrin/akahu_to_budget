@@ -88,38 +88,24 @@ def merge_and_update_mapping(
                 updated_mapping.pop(akahu_id, None)
                 logging.info(f"Deleted Akahu account with ID {akahu_id}.")
 
-            # Process Actual deletions
-            for actual_id, akahu_id in [(aid, aid) for aid in deleted_actual_accounts]:
-                if (
-                    akahu_id in updated_mapping
-                    and updated_mapping[akahu_id].get("actual_account_id") == actual_id
-                ):
-                    for key in [
-                        "actual_account_id",
-                        "actual_budget_id",
-                        "actual_budget_name",
-                        "actual_account_name",
-                    ]:
-                        updated_mapping[akahu_id].pop(key, None)
+            # Remove links to deleted Actual/YNAB accounts
+            for prefix, deleted_ids in (
+                ("actual", deleted_actual_accounts),
+                ("ynab", deleted_ynab_accounts),
+            ):
+                for akahu_id, entry in updated_mapping.items():
+                    target_id = entry.get(f"{prefix}_account_id")
+                    if target_id not in deleted_ids:
+                        continue
+                    for suffix in (
+                        "account_id",
+                        "budget_id",
+                        "budget_name",
+                        "account_name",
+                    ):
+                        entry.pop(f"{prefix}_{suffix}", None)
                     logging.info(
-                        f"Removed Actual account {actual_id} from mapping {akahu_id}."
-                    )
-
-            # Process YNAB deletions
-            for ynab_id, akahu_id in [(yid, aid) for yid in deleted_ynab_accounts]:
-                if (
-                    akahu_id in updated_mapping
-                    and updated_mapping[akahu_id].get("ynab_account_id") == ynab_id
-                ):
-                    for key in [
-                        "ynab_account_id",
-                        "ynab_budget_id",
-                        "ynab_budget_name",
-                        "ynab_account_name",
-                    ]:
-                        updated_mapping[akahu_id].pop(key, None)
-                    logging.info(
-                        f"Removed YNAB account {ynab_id} from mapping {akahu_id}."
+                        f"Removed {prefix} account {target_id} from mapping {akahu_id}."
                     )
 
     return (

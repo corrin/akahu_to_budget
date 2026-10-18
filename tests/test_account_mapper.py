@@ -357,3 +357,27 @@ def test_unlinked_accounts_keep_do_not_map_quietly():
     assert updated["acc_save"]["actual_do_not_map"] is True
     assert updated["acc_save"]["actual_matched_date"] == "2025-01-24T22:36:04"
     assert changes == []
+
+
+def test_merge_removes_links_to_deleted_actual_and_ynab_accounts(monkeypatch):
+    from modules.account_mapper import merge_and_update_mapping
+
+    monkeypatch.setattr("builtins.input", lambda _prompt: "y")
+    mapping = {
+        "acc_1": {"akahu_id": "acc_1", "actual_account_id": "act_gone",
+                  "actual_account_name": "Gone", "ynab_account_id": "ynab_keep"},
+        "acc_2": {"akahu_id": "acc_2", "actual_account_id": "act_keep",
+                  "ynab_account_id": "ynab_gone", "ynab_budget_id": "b1"},
+    }
+    akahu = {"acc_1": {"id": "acc_1"}, "acc_2": {"id": "acc_2"}}
+
+    updated, _, _, _ = merge_and_update_mapping(
+        mapping,
+        akahu, {"act_keep": {"id": "act_keep"}}, {"ynab_keep": {"id": "ynab_keep"}},
+        dict(akahu),
+        {"act_gone": {"id": "act_gone"}, "act_keep": {"id": "act_keep"}},
+        {"ynab_gone": {"id": "ynab_gone"}, "ynab_keep": {"id": "ynab_keep"}},
+    )
+
+    assert updated["acc_1"] == {"akahu_id": "acc_1", "ynab_account_id": "ynab_keep"}
+    assert updated["acc_2"] == {"akahu_id": "acc_2", "actual_account_id": "act_keep"}
