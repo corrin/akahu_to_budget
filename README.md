@@ -20,6 +20,8 @@ Also in terms of my personal setup, I haven't yet fully committed to giving up Y
 
 *(Note: Sure Finance support was added recently for users looking for an alternative self-hosted platform).*
 
+**Looking for co-maintainers.** I use Actual Budget day to day, so YNAB and Sure Finance changes only get unit-tested before release. If you sync to YNAB or Sure and would be willing to test releases against your setup and help maintain that side, please open an issue to volunteer.
+
 # Setup
 
 1. Create an Akahu account and an Akahu app: [https://my.akahu.nz/login](https://my.akahu.nz/login)
