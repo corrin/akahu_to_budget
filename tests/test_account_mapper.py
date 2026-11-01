@@ -104,6 +104,58 @@ def test_validate_user_input_rejects_non_numeric():
     assert validate_user_input("abc", [], {}, "actual_account_id") is None
 
 
+@pytest.mark.parametrize("account_type", ["ynab", "actual"])
+@pytest.mark.parametrize(
+    "account_details, expected_number",
+    [
+        ({}, "not provided by Akahu"),
+        ({"formatted_account": None}, "not provided by Akahu"),
+        ({"formatted_account": ""}, "not provided by Akahu"),
+        ({"formatted_account": "12-3456-7890123-00"}, "12-3456-7890123-00"),
+    ],
+)
+def test_match_accounts_handles_optional_account_number(
+    monkeypatch, capsys, account_type, account_details, expected_number
+):
+    from modules.account_mapper import match_accounts
+
+    akahu_accounts = {
+        "acc_one": {
+            "name": "Everyday",
+            "connection": "Example Bank",
+            "formatted_account": "12-3456-0000000-00",
+        },
+        "acc_two": {
+            "name": "Savings",
+            "connection": "Example Bank",
+            **account_details,
+        },
+    }
+    targets = {
+        "target_one": {"id": "target_one", "name": "Everyday (NZ)"},
+        "target_two": {"id": "target_two", "name": "Savings"},
+    }
+    selections = iter(["1", "2"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(selections))
+
+    mapping = match_accounts(
+        {}, akahu_accounts, targets, account_type, use_openai=False
+    )
+
+    assert mapping["acc_one"][f"{account_type}_account_id"] == "target_one"
+    assert mapping["acc_one"][f"{account_type}_account_name"] == "Everyday (NZ)"
+    assert mapping["acc_two"][f"{account_type}_account_id"] == "target_two"
+    assert (
+        f"Akahu Account: Savings (Connection: Example Bank, "
+        f"account number: {expected_number})"
+    ) in capsys.readouterr().out
+    assert akahu_accounts["acc_two"] == {
+        "name": "Savings",
+        "connection": "Example Bank",
+        **account_details,
+    }
+
+
 def test_save_mapping_failure_is_fatal(tmp_path):
     from modules.mapping_store import save_mapping
 

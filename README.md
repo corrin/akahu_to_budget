@@ -144,6 +144,9 @@ Run `python akahu_budget_mapping.py`
 
 This lets you interactively map your bank accounts with accounts set up in Actual Budget, YNAB, or Sure Finance.
 
+If Akahu does not supply an account number, the YNAB and Actual Budget prompts
+show `account number: not provided by Akahu`. You can still map the account normally.
+
 It will ask you a bunch of questions like
 ```Akahu Account: DAY TO DAY (Connection: Kiwibank)
 Here is a list of actual accounts:
