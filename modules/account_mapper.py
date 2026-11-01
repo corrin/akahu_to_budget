@@ -328,8 +328,10 @@ def match_accounts(
             )
         )
 
+        account_number = akahu_account.get("formatted_account") or "not provided by Akahu"
         print(
-            f"\nAkahu Account: {akahu_name} (Connection: {akahu_account['connection']}, account number: {akahu_account['formatted_account']})"
+            f"\nAkahu Account: {akahu_name} "
+            f"(Connection: {akahu_account['connection']}, account number: {account_number})"
         )
 
         # Show existing mapping from other system
