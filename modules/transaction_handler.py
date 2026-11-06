@@ -20,9 +20,13 @@ if RUN_SYNC_TO_AB:
         get_payee,
         get_payees,
         get_account,
+        get_transactions,
         match_transaction,
         set_transaction_payee,
     )
+
+# Overlap with the last sync to catch late-posting card transactions.
+AKAHU_LOOKBACK = timedelta(days=14)
 
 
 def get_cached_names(actual) -> tuple[Dict[str, str], Dict[str, str]]:
@@ -117,7 +121,7 @@ def get_all_akahu(
         last_reconciled_at_dt = datetime.fromisoformat(
             last_reconciled_at.replace("Z", "+00:00")
         )
-        start_time = last_reconciled_at_dt - timedelta(weeks=1)
+        start_time = last_reconciled_at_dt - AKAHU_LOOKBACK
         query_params["start"] = start_time.isoformat().replace("+00:00", "Z")
     else:
         query_params["start"] = "2024-01-01T00:00:00Z"
@@ -134,7 +138,7 @@ def get_all_akahu(
                 headers=akahu_headers,
             )
             response.raise_for_status()
-            
+
             akahu_txn_json = response.json()
             akahu_txn = pd.DataFrame(akahu_txn_json.get("items", []))
 
@@ -178,9 +182,47 @@ def get_all_akahu(
     return res
 
 
+def get_claimed_transactions(actual, actual_account_id, transactions):
+    """Get Actual transactions that new Akahu transactions must not fuzzy match.
+
+    actualpy fuzzy matches on same amount within 7 days, so an already imported
+    transaction could swallow a new one as a "duplicate". Only transactions
+    without an imported ID (manual entries) are left available to match.
+
+    Args:
+        actual: Actual instance with active session
+        actual_account_id: Actual account ID being synced
+        transactions: DataFrame of Akahu transactions in this batch
+
+    Returns:
+        List of Actual transactions with an imported ID in the matching window
+
+    Raises:
+        RuntimeError: If an Akahu transaction date cannot be parsed
+    """
+    batch_dates = []
+    for raw_date in transactions["date"]:
+        nzt_date_str = convert_to_nzt(raw_date)
+        if nzt_date_str is None:
+            raise RuntimeError(
+                f"Could not parse Akahu transaction date {raw_date!r} "
+                f"for Actual account {actual_account_id}"
+            )
+        batch_dates.append(datetime.strptime(nzt_date_str, "%Y-%m-%d").date())
+
+    # Same window actualpy's match_transaction searches.
+    existing = get_transactions(
+        actual.session,
+        start_date=min(batch_dates) - timedelta(days=7),
+        end_date=max(batch_dates) + timedelta(days=8),
+        account=actual_account_id,
+    )
+    return [txn for txn in existing if txn.financial_id]
+
+
 def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mode=None):
     """Load transactions into Actual Budget using the mapping information.
-    
+
     Args:
         transactions: DataFrame of transactions to load
         mapping_entry: Dictionary containing mapping information
@@ -194,6 +236,11 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
 
     actual_account_id = mapping_entry["actual_account_id"]
     imported_transactions = []
+    # Actual transactions already claimed, so they can't be fuzzy matched again.
+    matched_transactions = get_claimed_transactions(
+        actual, actual_account_id, transactions
+    )
+    claimed_ids = {txn.id for txn in matched_transactions}
 
     # Get cached names for rule changes - this will raise RuntimeError if it fails
     category_names, payee_names = get_cached_names(actual)
@@ -258,7 +305,7 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
                     payee_name,
                     amount,
                     imported_id,
-                    imported_transactions
+                    matched_transactions
                 )
 
                 logging.info("DEBUG: Looking for matching transaction...")
@@ -278,7 +325,7 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
                         'date': match.date,
                         'payee_id': match.payee_id
                     }
-                    
+
                     # Don't update fields for matches - we just want to detect duplicates
                     logging.info("DEBUG: Found duplicate - not updating fields")
                     reconciled_transaction = match
@@ -309,18 +356,34 @@ def load_transactions_into_actual(transactions, mapping_entry, actual, debug_mod
                     imported_id=imported_id,
                     cleared=cleared,
                     imported_payee=payee_name,
-                    already_matched=imported_transactions,
+                    already_matched=matched_transactions,
                     update_existing=False  # Don't update fields for matches
                 )
 
+            if reconciled_transaction.id not in claimed_ids:
+                claimed_ids.add(reconciled_transaction.id)
+                matched_transactions.append(reconciled_transaction)
+
             if not reconciled_transaction.changed():
+                matched_financial_id = reconciled_transaction.financial_id
+                if matched_financial_id != imported_id:
+                    # Fuzzy match. Warn if it hit another imported transaction.
+                    log = logging.warning if matched_financial_id else logging.info
+                    log(
+                        f"Akahu transaction {imported_id} ({parsed_date}, "
+                        f"{payee_name!r}, ${amount}) was not imported: it fuzzy "
+                        f"matched existing Actual transaction "
+                        f"{reconciled_transaction.id} dated "
+                        f"{reconciled_transaction.get_date()} imported from "
+                        f"{matched_financial_id or 'a manual entry'}"
+                    )
                 txn_details = f"{imported_id} - {payee_name} ${amount}"
                 if debug_mode == imported_id:
                     logging.info("DEBUG: Transaction was not modified")
                 elif debug_mode == 'all':
                     logging.info(f"Skipped duplicate transaction: {txn_details}")
                 else:
-                    logging.debug(f"Transaction already exists, skipping rule application and import.")
+                    logging.debug("Transaction already exists, skipping rule application and import.")
                 continue  # Skip to the next transaction
 
             if ruleset is not None:
@@ -499,6 +562,7 @@ def enrich_transaction(transaction_data, akahu_endpoint, akahu_headers):
     except Exception as e:
         logging.error(f"Error enriching transaction: {e}")
 
+
 def get_payee_name(row):
     """Extract the payee name from the given row.
 
@@ -595,7 +659,7 @@ def load_transactions_into_ynab(
     debug_mode=None
 ):
     """Save transactions from Akahu to YNAB.
-    
+
     Args:
         akahu_txn: DataFrame of transactions to load
         ynab_budget_id: YNAB budget ID
@@ -630,7 +694,7 @@ def load_transactions_into_ynab(
     if duplicates:
         dup_count = len(duplicates)
         dup_str = f"Skipped {dup_count} duplicates"
-        
+
         if debug_mode == 'all':
             logging.info(dup_str)
             # Find the original transactions to show their details
