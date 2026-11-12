@@ -369,7 +369,7 @@ For now it's not really doing anything.
 This script natively supports pushing Akahu transactions to a self-hosted instance of [Sure Finance](https://github.com/we-promise/sure). However, there is currently an architectural quirk in the Sure Finance API that requires a temporary workaround for deduplication.
 
 ### The Problem
-When syncing bank transactions, this script uses a 7-day lookback window to ensure pending transactions aren't missed when they finally settle.
+When syncing bank transactions, this script uses a 14-day lookback window to ensure pending transactions aren't missed when they finally settle.
 
 While Actual Budget and YNAB natively handle this overlapping window by deduplicating payloads via an `imported_id`, the Sure Finance `POST /api/v1/transactions` endpoint currently drops `external_id` from incoming payloads due to strong parameters. This causes the Sure API to blindly duplicate transactions on every daily sync.
 

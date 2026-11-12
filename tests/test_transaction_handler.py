@@ -314,3 +314,140 @@ def test_rule_not_changing_payee_does_not_call_set_transaction_payee(mocker):
         old_payee_id=None,
     )
     result["set_transaction_payee"].assert_not_called()
+
+
+def _fake_actual_txn(mocker, txn_id, financial_id, changed=False):
+    txn = mocker.MagicMock()
+    txn.id = txn_id
+    txn.financial_id = financial_id
+    txn.changed.return_value = changed
+    return txn
+
+
+def _akahu_row(txn_id, date, amount=-10.0, description="TEST MERCHANT"):
+    return {"_id": txn_id, "amount": amount, "date": date, "description": description}
+
+
+def _patch_actual_deps(mocker, existing=(), reconcile_results=()):
+    from modules import transaction_handler
+
+    mocker.patch.object(
+        transaction_handler, "get_cached_names", return_value=({}, {})
+    )
+    mocker.patch.object(transaction_handler, "get_ruleset", return_value=None)
+    get_txns = mocker.patch.object(
+        transaction_handler, "get_transactions", return_value=list(existing)
+    )
+    # Snapshot already_matched at call time; the list is mutated afterwards.
+    seen_already_matched = []
+
+    def reconcile(*args, **kwargs):
+        seen_already_matched.append([t.id for t in kwargs["already_matched"]])
+        return reconcile_results[len(seen_already_matched) - 1]
+
+    mocker.patch.object(
+        transaction_handler, "reconcile_transaction", side_effect=reconcile
+    )
+    fake_actual = mocker.MagicMock()
+    return transaction_handler, fake_actual, get_txns, seen_already_matched
+
+
+def test_imported_transactions_are_claimed_before_matching(mocker):
+    """Every Actual txn with a financial_id is claimed up front, in or out of the batch.
+
+    Akahu returns newest first, so without this the newer txn fuzzy-matches the
+    older one's Actual record before the older Akahu txn claims it by
+    imported_id. Txns from outside the batch must be claimed too. Manual
+    entries (no financial_id) stay available for fuzzy matching.
+    """
+    older_in_actual = _fake_actual_txn(mocker, "actual-older", "akahu-older")
+    outside_batch = _fake_actual_txn(mocker, "actual-other", "akahu-not-in-batch")
+    manual_entry = _fake_actual_txn(mocker, "actual-manual", None)
+    new_txn = _fake_actual_txn(mocker, "actual-new", "akahu-newer", changed=True)
+    handler, fake_actual, get_txns, seen = _patch_actual_deps(
+        mocker,
+        existing=[older_in_actual, outside_batch, manual_entry],
+        reconcile_results=[new_txn, older_in_actual],
+    )
+    df = pd.DataFrame([
+        _akahu_row("akahu-newer", "2025-01-15T00:00:00Z"),
+        _akahu_row("akahu-older", "2025-01-10T00:00:00Z"),
+    ])
+
+    imported = handler.load_transactions_into_actual(
+        df, {"actual_account_id": "actual-acc-1"}, fake_actual
+    )
+
+    assert seen[0] == ["actual-older", "actual-other"]
+    assert imported == 1
+    kwargs = get_txns.call_args.kwargs
+    assert kwargs["account"] == "actual-acc-1"
+    assert str(kwargs["start_date"]) == "2025-01-03"
+    assert str(kwargs["end_date"]) == "2025-01-23"
+
+
+def test_matched_existing_transaction_is_added_to_already_matched(mocker):
+    """A fuzzy-matched existing txn can't absorb a second Akahu txn in the same run."""
+    manual_entry = _fake_actual_txn(mocker, "actual-manual", None)
+    created = _fake_actual_txn(mocker, "actual-created", "akahu-2", changed=True)
+    handler, fake_actual, _, seen = _patch_actual_deps(
+        mocker, reconcile_results=[manual_entry, created]
+    )
+    df = pd.DataFrame([
+        _akahu_row("akahu-1", "2025-01-15T00:00:00Z"),
+        _akahu_row("akahu-2", "2025-01-15T01:00:00Z"),
+    ])
+
+    imported = handler.load_transactions_into_actual(
+        df, {"actual_account_id": "actual-acc-1"}, fake_actual
+    )
+
+    assert seen == [[], ["actual-manual"]]
+    assert imported == 1
+
+
+def test_fuzzy_match_to_other_akahu_transaction_logs_warning(mocker, caplog):
+    other = _fake_actual_txn(mocker, "actual-other", "akahu-out-of-window")
+    handler, fake_actual, _, _ = _patch_actual_deps(
+        mocker, reconcile_results=[other]
+    )
+    df = pd.DataFrame([_akahu_row("akahu-new", "2025-01-15T00:00:00Z")])
+
+    with caplog.at_level("WARNING"):
+        handler.load_transactions_into_actual(
+            df, {"actual_account_id": "actual-acc-1"}, fake_actual
+        )
+
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "akahu-new" in warnings[0].getMessage()
+    assert "akahu-out-of-window" in warnings[0].getMessage()
+
+
+def test_id_match_does_not_log_fuzzy_warning(mocker, caplog):
+    own = _fake_actual_txn(mocker, "actual-own", "akahu-1")
+    handler, fake_actual, _, _ = _patch_actual_deps(
+        mocker, existing=[own], reconcile_results=[own]
+    )
+    df = pd.DataFrame([_akahu_row("akahu-1", "2025-01-15T00:00:00Z")])
+
+    with caplog.at_level("INFO"):
+        handler.load_transactions_into_actual(
+            df, {"actual_account_id": "actual-acc-1"}, fake_actual
+        )
+
+    assert not any("fuzzy" in r.getMessage() for r in caplog.records)
+
+
+def test_akahu_fetch_starts_14_days_before_last_sync(mocker):
+    from modules import transaction_handler
+
+    response = mocker.MagicMock()
+    response.json.return_value = {"items": []}
+    get = mocker.patch.object(transaction_handler.requests, "get", return_value=response)
+
+    transaction_handler.get_all_akahu(
+        "acc_1", "https://api.akahu.io/v1", {}, "2025-02-01T00:00:00Z"
+    )
+
+    assert get.call_args.kwargs["params"]["start"] == "2025-01-18T00:00:00Z"
