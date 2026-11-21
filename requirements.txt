@@ -3,4 +3,4 @@ requests
 httpx
 pandas
 cryptography
-actualpy
+actualpy>=0.9.0  # set_transaction_payee
